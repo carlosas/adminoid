@@ -110,6 +110,20 @@ def main():
                 row = page.locator('.row', has_text='server · WorkshopItems')
                 expect(row.locator('input, textarea')).to_be_disabled()
                 expect(row.get_by_role('link', name='Se edita en Mods')).to_be_visible()
+                # Mod options: one section per installed mod, edited like any other setting
+                cats = page.locator('#categories')
+                expect(cats).to_contain_text('Mods')
+                cats.get_by_role('button', name=re.compile('^Common Sense')).click()
+                expect(page.locator('#fields')).to_contain_text('Este mod no tiene opciones disponibles.')
+                cats.get_by_role('button', name=re.compile("^Brita's Weapon Pack")).click()
+                expect(page.locator('#fields')).to_contain_text('Mod sin activar')
+                cats.get_by_role('button', name=re.compile('^Better Car Physics')).click()
+                expect(page.locator('#fields')).to_contain_text('Agarre de los neumáticos')
+                page.get_by_role('radio', name='Simulación').click()
+                page.get_by_role('button', name='Guardar 1 cambio').click()
+                expect(page.locator('#review-count')).to_have_text('0')
+                assert C.Document('sandbox', C.read_all()['sandbox']).fields['BetterCarPhysics.Mode'].value == 3
+
                 # Files of a downloaded item that is no longer used can be deleted
                 page.locator('.sidebar').get_by_role('link', name='Mods').click()
                 page.get_by_role('button', name="Borrar los archivos de Brita's Weapon Pack").click()

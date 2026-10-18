@@ -10,7 +10,7 @@ const isList=(scope,f)=>scope==='server'&&LISTS.includes(f.key);
 const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
 const edited=(scope,f)=>Object.hasOwn(PZ.state.edits[scope]||{},f.key);
 const pending=f=>f.applied_known&&!f.secret&&!same(f.applied,f.value);
-const groupOf=(scope,category)=>scope==='regions'||scope==='points'||/^(Advanced|Avanzado)\b/.test(category)?'other':scope;
+const groupOf=(scope,f)=>f.mod?'mods':scope==='regions'||scope==='points'||/^(Advanced|Avanzado)\b/.test(f.category)?'other':scope;
 
 function display(scope,f,v){
   if(f.secret)return v?t('newPassword'):t('hiddenValue');
@@ -26,12 +26,15 @@ function buildCategories(){
   const map=new Map();
   for(const [scope,doc] of Object.entries(PZ.state.config)){
     for(const f of doc.fields){
-      const id=scope==='regions'||scope==='points'?'spawn':f.category;
-      if(!map.has(id))map.set(id,{id,name:id==='spawn'?t('spawnCategory'):f.category,group:groupOf(scope,f.category),fields:[]});
+      const id=scope==='regions'||scope==='points'?'spawn':f.mod?'mod:'+f.mod:f.category;
+      if(!map.has(id))map.set(id,{id,name:id==='spawn'?t('spawnCategory'):f.category,group:groupOf(scope,f),fields:[]});
       map.get(id).fields.push([scope,f]);
     }
   }
-  const order={server:0,sandbox:1,other:2};
+  // Every installed mod gets a section, also the ones without options.
+  for(const mod of PZ.state.config.sandbox?.mods||[])
+    if(!map.has('mod:'+mod.id))map.set('mod:'+mod.id,{id:'mod:'+mod.id,name:mod.name,group:'mods',fields:[]});
+  const order={server:0,sandbox:1,other:2,mods:3};
   categories=[...map.values()].sort((a,b)=>order[a.group]-order[b.group]||(a.id==='spawn')-(b.id==='spawn')||a.name.localeCompare(b.name));
 }
 
@@ -62,7 +65,7 @@ function renderCategories(visible){
 }
 
 function visibleCategories(){
-  const v=categories.filter(c=>c.id==='spawn'?filter==='all':c.fields.length>0);
+  const v=categories.filter(c=>c.id==='spawn'||c.group==='mods'&&!c.fields.length?filter==='all':c.fields.length>0);
   if(!v.some(c=>c.id===selected))selected=v[0]?.id;
   return v;
 }
@@ -87,11 +90,15 @@ function render(){
     if(!sections.length)sections.push(el('div',{class:'card empty',text:filter==='modified'?t('noUnsaved'):filter==='pending'?t('noPendingRestart'):t('noResults')}));
   }else{
     const c=categories.find(x=>x.id===selected);
-    if(c)sections.push(c.id==='spawn'?spawnSection(c):section(c,c.fields.filter(matches),false));
+    if(c)sections.push(c.id==='spawn'?spawnSection(c):c.group==='mods'&&!c.fields.length?emptyModSection(c):section(c,c.fields.filter(matches),false));
   }
   $('#fields').replaceChildren(...sections);
   const total=categories.reduce((a,c)=>a+c.fields.length,0);
   $('#settings-summary').textContent=t('settingsSummary',{options:total,files:Object.keys(PZ.state.config).length});
+}
+
+function emptyModSection(c){
+  return el('section',{class:'card flush'},el('div',{class:'section-head'},el('h2',{text:c.name})),el('p',{class:'section-empty muted',text:t('modNoOptions')}));
 }
 
 function section(c,rows,searching){
@@ -115,7 +122,8 @@ function row(scope,f){
     const badges=[];
     if(changed)badges.push(el('span',{class:'badge amber',text:t('modified')}));
     if(pending(f))badges.push(el('span',{class:'pill blue',text:t('pendingRestartBadge')}));
-    if(f.readonly)badges.push(el('span',{class:'pill',text:t('protected')}));
+    if(f.absent)badges.push(el('span',{class:'pill',text:t('modOptionInactive'),title:t('modOptionInactiveHelp')}));
+    else if(f.readonly)badges.push(el('span',{class:'pill',text:t('protected')}));
     if(managedByMods(scope,f))badges.push(el('a',{class:'pill',href:'#mods',text:t('managedInMods')}));
     const help=el('p',{class:'row-help'},helpText(scope,f));
     if(changed){
@@ -190,7 +198,8 @@ function control(scope,f,id,set){
     const num=el('input',{id,class:'num',type:'number',disabled,step:f.kind==='integer'?'1':'any',min:f.minimum??undefined,max:f.maximum??undefined});
     num.value=value??'';
     const parse=v=>v===''?null:Number(v);
-    const hint=hasRange?el('span',{class:'range-hint',text:`${PZ.number(f.minimum,f.kind==='integer'?0:undefined)} – ${PZ.number(f.maximum,f.kind==='integer'?0:undefined)}`}):null;
+    const bound=v=>PZ.number(v,Number.isInteger(v)?0:Math.min(4,String(v).split('.')[1].length));
+    const hint=hasRange?el('span',{class:'range-hint',text:`${bound(f.minimum)} – ${bound(f.maximum)}`}):null;
     if(f.kind==='number'&&hasRange&&f.maximum-f.minimum<=10000){
       const range=el('input',{type:'range',min:f.minimum,max:f.maximum,step:(f.maximum-f.minimum)<=10?0.05:(f.maximum-f.minimum)/200,disabled,'aria-label':f.label});
       range.value=value??f.minimum;

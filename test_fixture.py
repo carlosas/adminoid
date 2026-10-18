@@ -76,6 +76,11 @@ LUA = '''SandboxVars = {
         Speed = 3,
         ThumpOnConstruction = true,
     },
+    BetterCarPhysics = {
+        Grip = 1.5,
+        Mode = 2,
+        Drift = false,
+    },
 }
 '''
 
@@ -194,6 +199,45 @@ def steam_fetch(url, data=None):
     links = ''.join(f'<a href="https://steamcommunity.com/workshop/filedetails/?id={r}" target="_blank">\n<div class="requiredItem">\n{STEAM[r][0]}</div></a>' for r in STEAM[ident][2])
     return f'<html><div class="requiredItemsContainer" id="RequiredItems">{links}</div></html>'
 
+MOD_FILES = {
+    '2850935956/mods/BetterCarPhysics/42/media/sandbox-options.txt': '''VERSION = 1,
+option BetterCarPhysics.Grip
+{
+    type = double, min = 0.5, max = 3.0, default = 1.0,
+    page = BetterCarPhysics, translation = BetterCarPhysics_Grip,
+}
+option BetterCarPhysics.Mode
+{
+    type = enum, numValues = 3, default = 1,
+    page = BetterCarPhysics, translation = BetterCarPhysics_Mode, valueTranslation = BetterCarPhysics_Modes,
+}
+option BetterCarPhysics.Drift = {
+    type = boolean, default = false,
+    page = BetterCarPhysics, translation = BetterCarPhysics_Drift,
+}
+''',
+    '2850935956/mods/BetterCarPhysics/common/media/lua/shared/Translate/EN/Sandbox_EN.txt': '''Sandbox_EN = {
+    Sandbox_BetterCarPhysics_Grip = "Tyre grip",
+    Sandbox_BetterCarPhysics_Grip_tooltip = "Multiplier for how well cars hold the road.",
+    Sandbox_BetterCarPhysics_Mode = "Handling",
+    Sandbox_BetterCarPhysics_Modes_option1 = "Arcade",
+    Sandbox_BetterCarPhysics_Modes_option2 = "Realistic",
+    Sandbox_BetterCarPhysics_Modes_option3 = "Simulation",
+    Sandbox_BetterCarPhysics_Drift = "Allow drifting",
+}
+''',
+    '2850935956/mods/BetterCarPhysics/common/media/lua/shared/Translate/ES/Sandbox.json': json.dumps({
+        'Sandbox_BetterCarPhysics_Grip': 'Agarre de los neumáticos', 'Sandbox_BetterCarPhysics_Mode': 'Manejo',
+        'Sandbox_BetterCarPhysics_Modes_option1': 'Arcade', 'Sandbox_BetterCarPhysics_Modes_option2': 'Realista',
+        'Sandbox_BetterCarPhysics_Modes_option3': 'Simulación', 'Sandbox_BetterCarPhysics_Drift': 'Permitir derrapes'}),
+    '2200148440/mods/Brita/42/media/sandbox-options.txt': '''option Brita.Damage
+{
+    type = integer, min = 1, max = 10, default = 5,
+    page = Brita, translation = Brita_Damage,
+}
+''',
+}
+
 LOG = ['LOG  : General      f:0, t:{ms}> Saving world...', 'LOG  : General      f:0, t:{ms}> World saved (1.8 s)',
        'LOG  : Network      f:0, t:{ms}> ConnectionManager: [fully-connected] "" connection: guid=1 username="Spiffo"',
        'WARN : General      f:0, t:{ms}> Slow chunk load at 34,21 (412 ms)', 'LOG  : Network      f:0, t:{ms}> Player "Kate" ping 38 ms',
@@ -214,6 +258,9 @@ def build(root):
         for folder, info in mods.items():
             base = S.DATA / 'mods' / folder if workshop == 'local' else S.GAME / 'steamapps/workshop/content/108600' / workshop / 'mods' / folder / '42'
             atomic(base / 'mod.info', info)
+    # Sandbox options of two mods: Better Car Physics is active (its values are in SandboxVars), Brita is not.
+    workshop = S.GAME / 'steamapps/workshop/content/108600'
+    for path, text in MOD_FILES.items(): atomic(workshop / path, text)
     # Configuration applied at the last start: one sandbox value differs, so a restart is pending.
     applied = {'server': INI, 'sandbox': LUA.replace('Zombies = 4', 'Zombies = 3'), 'regions': REGIONS}
     write_json(S.STATE / 'applied-values.json', applied)

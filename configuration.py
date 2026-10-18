@@ -168,6 +168,71 @@ def metadata(scope, field, tr, cats):
                 minimum=float(bounds[1]) if bounds else None, maximum=float(bounds[2]) if bounds else None,
                 readonly=locked)
 
+# Mod sandbox options: each mod declares them in media/sandbox-options.txt and they live in SandboxVars under their name.
+OPTION = re.compile(r'^\s*option\s+([\w.]+)\s*=?\s*\{(.*?)\}', re.S | re.M)
+
+def mod_media(folder):
+    """media folders of a mod: its own and, for Build 42 layouts (mods/X/42), the shared common one."""
+    return [d / 'media' for d in (folder, folder.parent / 'common') if (d / 'media').is_dir()]
+
+def mod_translations(media, lang):
+    out = {}
+    for code in (('EN', 'ES') if lang == 'es' else ('EN',)):
+        for base in media:
+            folder = base / 'lua/shared/Translate' / code
+            for p in sorted(folder.glob('Sandbox*')) if folder.is_dir() else []:
+                if p.is_symlink() or p.stat().st_size > 1_000_000: continue
+                text = p.read_text(encoding='utf-8-sig', errors='replace')
+                if p.suffix == '.json':
+                    try: out.update({k: v for k, v in json.loads(text).items() if isinstance(v, str)})
+                    except ValueError: pass
+                else:
+                    out.update({k: v.replace('\\"', '"') for k, v in re.findall(r'(\w+)\s*=\s*"((?:[^"\\\n]|\\.)*)"', text)})
+    return out
+
+def parse_options(text):
+    options = {}
+    for name, body in OPTION.findall(text):
+        props = dict((k, v.strip().strip('"')) for k, v in re.findall(r'(\w+)\s*=\s*([^,\n]*)', body))
+        options[name] = props
+    return options
+
+def mod_options(lang='en'):
+    """Installed mods with the sandbox options they declare, labelled with the mod's own translations."""
+    from operations import installed_mods
+    mods = []
+    for mod in installed_mods(dirs=True):
+        media = mod_media(mod['dir'])
+        options = {}
+        for base in media:
+            p = base / 'sandbox-options.txt'
+            if p.is_file() and not p.is_symlink() and p.stat().st_size < 1_000_000:
+                options.update(parse_options(p.read_text(encoding='utf-8-sig', errors='replace')))
+        tr = mod_translations(media, lang) if options else {}
+        defs = {}
+        for key, o in options.items():
+            kind = o.get('type', 'string')
+            name = 'Sandbox_' + (o.get('translation') or key.replace('.', '_'))
+            values = 'Sandbox_' + (o.get('valueTranslation') or o.get('translation') or key.replace('.', '_'))
+            number = lambda v: float(v) if v not in (None, '') and re.fullmatch(r'-?\d+(\.\d+)?', v) else None
+            choices = {n: tr.get(f'{values}_option{n}', str(n)) for n in range(1, int(o['numValues']) + 1)} if kind == 'enum' and str(o.get('numValues', '')).isdigit() else {}
+            kind = {'enum': 'integer', 'double': 'number', 'boolean': 'boolean', 'integer': 'integer'}.get(kind, 'string')
+            default = o.get('default')
+            try: default = {'boolean': lambda v: v == 'true', 'integer': int, 'number': float}.get(kind, str)(default) if default is not None else None
+            except ValueError: default = None
+            defs[key] = dict(label=tr.get(name, key), help=tr.get(name + '_tooltip', '').replace('<LINE>', '\n').replace('<BR>', '\n'),
+                             kind=kind, default=default, choices=choices,
+                             minimum=number(o.get('min')), maximum=number(o.get('max')))
+        mods.append({'id': mod['id'], 'name': mod.get('name') or mod['id'], 'options': defs})
+    return mods
+
+def apply_mod_option(meta, mod, option):
+    """Label, help, bounds and choices of a SandboxVars field from the mod that declares it."""
+    meta.update(category=mod['name'], mod=mod['id'], label=option['label'], help=option['help'] or meta['help'])
+    if option['choices']: meta['choices'] = option['choices']
+    if option['minimum'] is not None and option['maximum'] is not None: meta.update(minimum=option['minimum'], maximum=option['maximum'])
+    return meta
+
 class Document:
     def __init__(self, scope, text):
         self.scope, self.text = scope, text
@@ -176,10 +241,12 @@ class Document:
     def edit(self, changes):
         tr, cats = translations(), None
         cats = categories(tr)
+        declared = {k: (mod, o) for mod in mod_options() for k, o in mod['options'].items()} if self.scope == 'sandbox' else {}
         edits = []
         for key, value in changes.items():
             if key not in self.fields or key in PROTECTED: raise ValueError('Read-only option: ' + key)
             f = self.fields[key]; m = metadata(self.scope, f, tr, cats)
+            if key in declared: m = apply_mod_option(m, *declared[key])
             if f.kind == 'boolean':
                 if type(value) is not bool: raise ValueError(key + ': must be yes/no.')
                 raw = 'true' if value else 'false'
@@ -208,11 +275,26 @@ def catalog(lang='en'):
         try:
             doc = Document(scope, text)
             fields=[metadata(scope, f, tr, cats) for f in doc.fields.values()]
+            if scope == 'sandbox':
+                # Options declared by installed mods get their own section per mod; the ones not in the file yet
+                # (mod inactive or not started since) are listed read-only with their default.
+                mods = mod_options(lang)
+                declared = {k: (mod, o) for mod in mods for k, o in mod['options'].items()}
+                for f in fields:
+                    if f['key'] in declared: apply_mod_option(f, *declared[f['key']])
+                for mod in mods:
+                    for k, o in mod['options'].items():
+                        if k in doc.fields: continue
+                        f = dict(key=k, label=k, help='', category='', kind=o['kind'], value=o['default'], secret=False, configured=None,
+                                 choices={}, minimum=None, maximum=None, readonly=True, absent=True)
+                        fields.append(apply_mod_option(f, mod, o))
+            
             if lang=='es':
                 for f in fields:
                     f['category']=f['category'].replace('Advanced · ','Avanzado · ').replace('Spawn · regions','Aparición · regiones').replace('Spawn · points','Aparición · puntos').replace('Mods and maps','Mods y mapas')
                     if f['category']=='Advanced': f['category']='Avanzado'
             result[scope] = dict(revision=digest(text), fields=fields, error=None)
+            if scope == 'sandbox': result[scope]['mods'] = [{'id': m['id'], 'name': m['name'], 'options': len(m['options'])} for m in mods]
         except ValueError as e:
             result[scope] = dict(revision=digest(text), fields=[], error=str(e))
     return result
