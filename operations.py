@@ -375,7 +375,8 @@ def mod_ids(text):
     """Mods line and mod.info 'require' entries: separated by ; or , and optionally prefixed by a backslash (Build 42)."""
     return [x.strip().lstrip('\\').strip() for x in re.split(r'[;,]', text or '') if x.strip().lstrip('\\').strip()]
 
-def installed_mods():
+def installed_mods(dirs=False):
+    """Mods found on disk; with dirs, each also carries the folder holding its mod.info."""
     roots = [(S.DATA / 'mods', False)] + [(root, True) for root in workshop_roots()]
     found = {}
     for root, workshop in roots:
@@ -394,9 +395,11 @@ def installed_mods():
             vals['requires'] = mod_ids(vals.pop('require', ''))
             ident = vals.get('id') or relative.parent.name
             vals['id'] = ident
+            vals['dir'] = p.parent
             # Build 42 mods ship mod.info in several folders (common, 42, ...); prefer the 42 one.
             if ident not in found or '42' in relative.parts: found[ident] = vals
-    return sorted(found.values(), key=lambda m: (m.get('name') or m['id']).lower())
+    mods = sorted(found.values(), key=lambda m: (m.get('name') or m['id']).lower())
+    return mods if dirs else [{k: v for k, v in m.items() if k != 'dir'} for m in mods]
 
 def mods_report():
     """Installed mods cross-checked against the saved Mods line of the server INI."""

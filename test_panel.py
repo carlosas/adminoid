@@ -277,6 +277,30 @@ class ModsTests(TemporaryServer):
             with self.assertRaisesRegex(ValueError,error): O.delete_workshop(ident)
         self.assertEqual(O.delete_workshop('333'),['Old'])
         self.assertFalse((workshop/'333').exists());self.assertTrue((workshop/'222').exists())
+    def test_mod_sandbox_options(self):
+        import test_fixture as F
+        workshop=S.GAME/'steamapps/workshop/content/108600'
+        for folder,mods in F.MODS.items():
+            for name,info in mods.items():
+                if folder!='local': self.mod(workshop/folder/'mods'/name,'42',info)
+        for path,text in F.MOD_FILES.items(): atomic(workshop/path,text)
+        atomic(S.DATA/'Server'/S.FILES['sandbox'],F.LUA)
+        sandbox=C.catalog('es')['sandbox']
+        fields={f['key']:f for f in sandbox['fields']}
+        grip,mode,damage=fields['BetterCarPhysics.Grip'],fields['BetterCarPhysics.Mode'],fields['Brita.Damage']
+        self.assertEqual((grip['category'],grip['mod'],grip['label'],grip['minimum'],grip['maximum']),('Better Car Physics','BetterCarPhysics','Agarre de los neumáticos',0.5,3.0))
+        self.assertEqual(grip['help'],'Multiplier for how well cars hold the road.')
+        self.assertEqual(mode['choices'],{1:'Arcade',2:'Realista',3:'Simulación'});self.assertFalse(mode['readonly'])
+        # Options of an inactive mod are not in SandboxVars: read-only with their default
+        self.assertEqual((damage['value'],damage['readonly'],damage['absent'],damage['category']),(5,True,True,"Brita's Weapon Pack"))
+        self.assertEqual({m['id']:m['options'] for m in sandbox['mods']},{'CommonSense':0,'truemusic':0,'tsarslib':0,'BetterCarPhysics':3,'Brita':1})
+        # Edits are checked against the bounds the mod declares
+        doc=C.Document('sandbox',F.LUA)
+        with self.assertRaisesRegex(ValueError,'outside'): doc.edit({'BetterCarPhysics.Grip':5.0})
+        with self.assertRaisesRegex(ValueError,'invalid option'): doc.edit({'BetterCarPhysics.Mode':4})
+        self.assertIn('Grip = 2.0',doc.edit({'BetterCarPhysics.Grip':2.0}))
+        with self.assertRaisesRegex(ValueError,'Read-only'): doc.edit({'Brita.Damage':3})
+
     def test_workshop_lookup(self):
         from test_fixture import steam_fetch
         self.assertEqual(O.description_mod_ids('[h1]Info[/h1]\r\nWorkshop ID: 1\r\n[b]Mod ID:[/b] A; \\B\nMod IDs: C, A\nmod id = <b>D</b>\nUses the mod ID: no'),['A','B','C','D'])
