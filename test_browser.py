@@ -110,6 +110,12 @@ def main():
                 row = page.locator('.row', has_text='server · WorkshopItems')
                 expect(row.locator('input, textarea')).to_be_disabled()
                 expect(row.get_by_role('link', name='Se edita en Mods')).to_be_visible()
+                # Files of a downloaded item that is no longer used can be deleted
+                page.locator('.sidebar').get_by_role('link', name='Mods').click()
+                page.get_by_role('button', name="Borrar los archivos de Brita's Weapon Pack").click()
+                page.locator('#dialog').get_by_role('button', name='Borrar archivos').click()
+                expect(page.locator('#mod-rows')).not_to_contain_text('Brita')
+                assert not (S.GAME / 'steamapps/workshop/content/108600/2200148440').exists()
                 # Add from the Workshop by pasting a link: required items and their Mod IDs come along, required ones first
                 page.locator('.sidebar').get_by_role('link', name='Mods').click()
                 expect(page.locator('#workshop-rows')).to_contain_text('Common Sense')

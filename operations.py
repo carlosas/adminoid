@@ -376,7 +376,7 @@ def mod_ids(text):
     return [x.strip().lstrip('\\').strip() for x in re.split(r'[;,]', text or '') if x.strip().lstrip('\\').strip()]
 
 def installed_mods():
-    roots = [(S.DATA / 'mods', False), (S.GAME / 'steamapps/workshop/content/108600', True), (S.STEAM.parent / 'steamapps/workshop/content/108600', True)]
+    roots = [(S.DATA / 'mods', False)] + [(root, True) for root in workshop_roots()]
     found = {}
     for root, workshop in roots:
         if not root.exists(): continue
@@ -417,6 +417,24 @@ def mods_report():
             elif active.index(dep) > position: issues.append({'kind': 'order', 'mod': ident, 'name': mod.get('name') or ident, 'requires': dep})
     return {'installed': installed, 'active': active_raw, 'workshop': workshop, 'issues': issues,
             'editable': 'Mods' in fields}
+
+def workshop_roots():
+    return [S.GAME / 'steamapps/workshop/content/108600', S.STEAM.parent / 'steamapps/workshop/content/108600']
+
+def delete_workshop(ident):
+    """Delete the downloaded files of a Workshop item the server no longer uses (not in the saved WorkshopItems or Mods lines)."""
+    if not isinstance(ident, str) or not re.fullmatch(r'\d{1,20}', ident): raise ValueError('Invalid Workshop ID.')
+    report = mods_report()
+    if ident in report['workshop']: raise ValueError('The item is still in WorkshopItems. Remove it and save first.')
+    active = {x.strip().lstrip('\\') for x in report['active']}
+    mods = [m for m in report['installed'] if m['workshop'] == ident]
+    if any(m['id'] in active for m in mods): raise ValueError('One of its mods is still in the Mods line. Remove it and save first.')
+    targets = [p for root in workshop_roots() for p in (root / ident, root.parent.parent / 'downloads/108600' / ident)]
+    targets = [p for p in targets if p.is_dir() and not p.is_symlink()]
+    if not targets: raise ValueError('No downloaded files were found for this item.')
+    with locked():
+        for p in targets: shutil.rmtree(p)
+    return [m['id'] for m in mods]
 
 # Steam Workshop lookups: title and Mod IDs from the item description, required items from its page.
 WORKSHOP_API = 'https://api.steampowered.com/ISteamRemoteStorage/GetPublishedFileDetails/v1/'
