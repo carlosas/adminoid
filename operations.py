@@ -125,14 +125,17 @@ def log_text(source='game'):
     result = command(['journalctl', '--user-unit', LOG_UNITS[source], '-n', '5000', '--no-pager', '-o', 'short-iso'], timeout=30)
     return redact(result.stdout)
 
+def changed_keys(scope, before, after):
+    """Keys whose saved value differs from the one read at the last start.
+    Keys only on one side are left out: the game adds defaults (new options, mod settings) after starting,
+    and the panel never adds or removes keys."""
+    before, after = Document(scope, before).fields, Document(scope, after).fields
+    return [k for k in after if k in before and before[k].value != after[k].value]
+
 def same_configuration(scope, before, after):
     """Ignore comments/formatting rewritten by the game; compare effective values."""
-    try:
-        left = {key: field.value for key, field in Document(scope, before).fields.items()}
-        right = {key: field.value for key, field in Document(scope, after).fields.items()}
-        return left == right
-    except ValueError:
-        return before == after
+    try: return not changed_keys(scope, before, after)
+    except ValueError: return before == after
 
 def status():
     props = dict(x.split('=', 1) for x in systemctl('show').splitlines() if '=' in x)
@@ -167,13 +170,8 @@ def pending_changes(applied_values, current_text, pending):
     """Saved values that differ from the ones read at the last start, per file."""
     result = {}
     for scope in pending:
-        try:
-            before = Document(scope, applied_values[scope]).fields
-            after = Document(scope, current_text[scope]).fields
-        except (KeyError, ValueError):
-            result[scope] = None; continue
-        keys = [k for k in after if k not in before or before[k].value != after[k].value] + [k for k in before if k not in after]
-        result[scope] = len(keys)
+        try: result[scope] = len(changed_keys(scope, applied_values[scope], current_text[scope]))
+        except (KeyError, ValueError): result[scope] = None
     return result
 
 _samples = deque(maxlen=240)
