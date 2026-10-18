@@ -135,7 +135,7 @@ def main():
                 expect(page.locator('#log-lines mark').first).to_have_text('Kate')
                 page.get_by_role('button', name='Pausar').click()
                 expect(page.locator('#log-live')).to_contain_text('En pausa')
-                page.screenshot(path=str(Path(tempfile.gettempdir()) / 'zomboid-panel-logs.png'))
+                page.screenshot(path=str(Path(tempfile.gettempdir()) / 'adminoid-logs.png'))
 
                 # English, phone layout and logout
                 page.locator('.sidebar .lang-switch a[data-lang=en]').click()

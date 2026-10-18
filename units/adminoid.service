@@ -5,8 +5,8 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-WorkingDirectory=%h/zomboid-panel
-ExecStart=%h/zomboid-panel/.venv/bin/python %h/zomboid-panel/app.py
+WorkingDirectory=%h/adminoid
+ExecStart=%h/adminoid/.venv/bin/python %h/adminoid/app.py
 Restart=on-failure
 RestartSec=10
 UMask=0077

@@ -79,7 +79,7 @@ def redact(text, hidden=None):
     for value in (secrets() if hidden is None else hidden): text = text.replace(value, '[hidden]')
     return re.sub(r'(?i)((?:password|secret|token)\s*[=:]\s*)\S+', r'\1[oculto]', text)
 
-LOG_UNITS = {'game': S.SERVICE, 'panel': 'zomboid-panel.service', 'backup': 'zomboid-backup.service'}
+LOG_UNITS = {'game': S.SERVICE, 'panel': 'adminoid.service', 'backup': 'zomboid-backup.service'}
 LOG_LINE = re.compile(r'^(?P<level>LOG|INFO|WARN|WARNING|ERROR|SEVERE|DEBUG|TRACE)\s*:\s*(?P<category>[A-Za-z][\w.-]*)'
                       r'[\s,]*(?:f:\d+,\s*)?(?:t:)?(?:\d{10,}>)?\s*(?:[\d,]+>)?\s*(?P<text>.*)$')
 LEVELS = {'WARN': 'warn', 'WARNING': 'warn', 'ERROR': 'error', 'SEVERE': 'error'}

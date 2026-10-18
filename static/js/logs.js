@@ -3,7 +3,7 @@
 const {t,$,el,api,run,clockPrecise}=window.PZ;
 const PZ=window.PZ;
 const MAX=5000;
-const UNITS={game:'zomboid.service',panel:'zomboid-panel.service',backup:'zomboid-backup.service'};
+const UNITS={game:'zomboid.service',panel:'adminoid.service',backup:'zomboid-backup.service'};
 let entries=[],cursor=null,paused=false,level='all',timer=null,loading=false,generation=0;
 
 const box=()=>$('#log-lines');
