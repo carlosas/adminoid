@@ -205,8 +205,8 @@ main{flex:1;min-width:0;padding:28px 40px 48px;display:flex;flex-direction:colum
 .toolbar.padded{padding:14px 16px}
 .settings-layout{display:flex;flex-wrap:wrap;gap:24px;align-items:flex-start}
 .categories{flex:0 1 220px;min-width:190px;display:flex;flex-direction:column;gap:2px;position:sticky;top:16px;max-height:calc(100vh - 32px);overflow-y:auto}
-.cat-group{font-size:12px;letter-spacing:1px;color:var(--muted);padding:14px 10px 6px;text-transform:uppercase}
-.cat-group:first-child{padding-top:0}
+.cat-group{font:700 15px/1.2 var(--display);letter-spacing:1.5px;color:var(--accent);text-transform:uppercase;margin-top:14px;padding:14px 10px 6px;border-top:1px solid var(--line)}
+.cat-group:first-child{margin-top:0;padding-top:0;border-top:0}
 .cat-link{display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:38px;padding:0 10px;border-radius:7px;color:#b9c8c6;text-decoration:none;font-size:14px;background:none;border:0;font-family:inherit;cursor:pointer;text-align:left}
 .cat-link:hover{background:var(--raised);color:var(--text)}
 .cat-link[aria-current=true]{background:var(--nav-active);color:var(--accent-strong);font-weight:600}
