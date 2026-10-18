@@ -203,7 +203,7 @@ async function addByWorkshop(){
     const deps=list.filter(x=>x.id!==id);
     preview.replaceChildren(
       el('p',{class:'small muted',text:t('activateThese')}),block(main),
-      deps.length?el('p',{class:'small muted',text:t('alsoRequires')}):null,...deps.map(block),
+      ...(deps.length?[el('p',{class:'small muted',text:t('alsoRequires')}),...deps.map(block)]:[]),
       el('a',{class:'small',href:steamUrl(id),target:'_blank',rel:'noopener noreferrer',text:t('openInSteam')}));
   }
   const input=el('input',{name:'workshop',autocomplete:'off',spellcheck:'false',placeholder:'https://steamcommunity.com/sharedfiles/filedetails/?id=…',oninput:()=>{
