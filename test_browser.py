@@ -111,6 +111,11 @@ def main():
                 page.locator('#dialog').get_by_role('button', name='Guardar y reiniciar').click()
                 expect(page.locator('#operation-card')).to_contain_text('Reinicio completado')
                 expect(page.locator('#operation-card .steps li.done')).to_have_count(3)
+                # The restart applied the saved settings, so nothing stays pending without reloading
+                page.locator('.sidebar').get_by_role('link', name='Configuración').click()
+                expect(page.locator('#settings-filter')).to_contain_text('Pendientes de reinicio')
+                expect(page.locator('#settings-filter')).not_to_contain_text('Pendientes de reinicio ·')
+                page.locator('.sidebar').get_by_role('link', name='Mantenimiento').click()
                 page.locator('#backup-rows').get_by_role('button', name=re.compile('^Restaurar zomboid-')).first.click()
                 confirm = page.locator('#dialog').get_by_role('button', name='Restaurar y reiniciar')
                 expect(confirm).to_be_disabled()

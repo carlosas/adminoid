@@ -259,6 +259,21 @@ async function load(){
   if(PZ.current()==='settings')render();
 }
 
+// After a restart the applied values change; refresh them without losing unsaved edits.
+async function refreshApplied(){
+  if(!PZ.state.config)return;
+  const fresh=await api('config');
+  for(const [scope,doc] of Object.entries(fresh)){
+    const latest=new Map((doc.fields||[]).map(f=>[f.key,f]));
+    for(const f of PZ.state.config[scope]?.fields||[]){
+      const n=latest.get(f.key);
+      if(n){f.applied=n.applied;f.applied_known=n.applied_known;}
+    }
+  }
+  PZ.changed();
+  if(PZ.current()==='settings')render();
+}
+
 // Spawn regions and points: structural editors kept from the previous panel.
 function spawnSection(c){
   const box=el('section',{class:'card flush'},el('div',{class:'section-head'},el('h2',{text:c.name}),el('span',{class:'small muted',text:t('spawnWarning')})));
@@ -303,7 +318,7 @@ function spawnSection(c){
   return box;
 }
 
-PZ.views.settings={title:'configuration',load,render,fileName,display,
+PZ.views.settings={title:'configuration',load,refreshApplied,render,fileName,display,
   enter(arg,entering){
     if(arg==='pending'||arg==='modified'){filter=arg;$('#search').value='';}
     if(!PZ.state.config)run(load)();else render();
