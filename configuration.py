@@ -148,7 +148,25 @@ def categories(tr):
     return result
 
 # Options the game's settings screen leaves out but that belong next to one it shows.
-SIBLINGS = {'StartYear': 'StartMonth'}
+SIBLINGS = {
+    'StartYear': 'StartMonth',
+    'PVPLogToolChat': 'PVP', 'PVPLogToolFile': 'PVP', 'KnockedDownAllowed': 'PVP', 'SafetyDisconnectDelay': 'SafetySystem',
+    'DenyLoginOnOverloadedServer': 'MaxPlayers', 'LoginQueueEnabled': 'MaxPlayers', 'LoginQueueConnectTimeout': 'MaxPlayers',
+    'SneakModeHideFromOtherPlayers': 'HidePlayersBehindYou',
+    'server_browser_announced_ip': 'DefaultPort',
+    'SteamVAC': 'UDPPort', 'DisableScoreboard': 'SteamScoreboard',
+    'BanKickGlobalSound': 'ClientCommandFilter', 'HideAdminsInPlayerList': 'ClientCommandFilter',
+    'MaxSafezoneSize': 'AdminSafehouse',
+    'ChatStreams': 'GlobalChat', 'BadWordListFile': 'GlobalChat', 'GoodWordListFile': 'GlobalChat',
+    'BadWordPolicy': 'GlobalChat', 'BadWordReplacement': 'GlobalChat',
+    'UltraSpeedDoesnotAffectToAnimals': 'FastForwardMultiplier',
+    'CarEngineAttractionModifier': 'SpeedLimit', 'DisableVehicleTowing': 'SpeedLimit',
+    'DisableTrailerTowing': 'SpeedLimit', 'DisableBurntTowing': 'SpeedLimit',
+    # Sandbox
+    'NightLength': 'DayLength', 'AlarmDecayModifier': 'AlarmDecay', 'AnimalMetaStatsModifier': 'AnimalStatsModifier',
+    'InsaneLootFactor': 'HoursForLootRespawn', 'ExtremeLootFactor': 'HoursForLootRespawn', 'RareLootFactor': 'HoursForLootRespawn',
+    'NormalLootFactor': 'HoursForLootRespawn', 'CommonLootFactor': 'HoursForLootRespawn', 'AbundantLootFactor': 'HoursForLootRespawn',
+}
 
 def metadata(scope, field, tr, cats):
     key = field.key
@@ -164,7 +182,7 @@ def metadata(scope, field, tr, cats):
     # Options the game's settings screen does not group go to an Advanced section of their own group.
     category = cats.get((scope, key)) or cats.get((scope, SIBLINGS.get(key)), 'Advanced')
     if scope in ('regions', 'points'): category = 'Spawn · ' + ('regions' if scope == 'regions' else 'points')
-    if key in ('Mods', 'WorkshopItems', 'Map'): category = 'Mods and maps'
+    if key in ('Mods', 'WorkshopItems', 'Map', 'SpawnPoint'): category = 'Mods and maps'
     locked = key in PROTECTED
     return dict(key=key, label=label, help=help_text, category=category, kind=field.kind,
                 value=None if SECRET.search(key) else field.value, secret=bool(SECRET.search(key)),

@@ -60,6 +60,16 @@ class ParserTests(TemporaryServer):
         for key in ('StartMonth','StartYear'):
             self.assertEqual(C.metadata('sandbox',N(key=key,help='',value=1,kind='integer'),{},cats)['category'],'Time')
         self.assertEqual(C.metadata('sandbox',N(key='Other',help='',value=1,kind='integer'),{},cats)['category'],'Advanced')
+    def test_server_advanced_options_join_related_groups(self):
+        from types import SimpleNamespace as N
+        cats={('server','PVP'):'PVP',('server','SafetySystem'):'PVP',('server','GlobalChat'):'Chat',('server','SpeedLimit'):'Vehicles'}
+        meta=lambda key:C.metadata('server',N(key=key,help='',value=1,kind='integer'),{},cats)['category']
+        for key,category in (('PVPLogToolFile','PVP'),('SafetyDisconnectDelay','PVP'),('BadWordPolicy','Chat'),
+                             ('DisableVehicleTowing','Vehicles'),('SpawnPoint','Mods and maps'),('AntiCheatSpeed','Advanced')):
+            self.assertEqual(meta(key),category,key)
+        cats={('sandbox','HoursForLootRespawn'):'Loot',('sandbox','AlarmDecay'):'World'}
+        for key,category in (('RareLootFactor','Loot'),('AlarmDecayModifier','World'),('Farming','Advanced')):
+            self.assertEqual(C.metadata('sandbox',N(key=key,help='',value=1,kind='integer'),{},cats)['category'],category,key)
     def test_ini_lossless_and_secret(self):
         text=C.Document('server',INI).edit({'Password':'a&b|$x"','PVP':True})
         self.assertEqual(text,INI.replace('old-secret','a&b|$x"').replace('PVP=false','PVP=true'))
