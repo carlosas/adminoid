@@ -1,4 +1,5 @@
 import collections
+import copy
 import datetime as dt
 import getpass
 import hmac
@@ -12,15 +13,15 @@ import time
 import uuid
 from pathlib import Path
 
-from flask import Flask, abort, jsonify, render_template, request, session
+from flask import Flask, Response, abort, jsonify, render_template, request, session
 from werkzeug.security import generate_password_hash, check_password_hash
 from waitress import serve
 
 import settings as S
 import configuration as C
 import operations as O
-from i18n import translate
-from common import atomic, initialize, write_json, locked
+from i18n import translate, notice
+from common import atomic, initialize, write_json, locked, record, activity
 
 def create_app():
     initialize()
@@ -113,6 +114,29 @@ def create_app():
     @app.get('/api/players')
     def players(): return jsonify(O.players())
 
+    @app.post('/api/players/message')
+    def player_message():
+        text = request.get_json().get('text')
+        if not isinstance(text, str) or not text.strip() or len(text) > 200: raise ValueError('Invalid text.')
+        # The game console can only broadcast to everyone; there are no private messages.
+        O.broadcast(text)
+        record('message', 'info', text=text.strip()[:200])
+        return jsonify(ok=True, message='Message sent.')
+
+    @app.post('/api/players/kick')
+    def player_kick():
+        data = request.get_json(); name = data.get('name'); reason = data.get('reason') or ''
+        if not isinstance(name, str) or not isinstance(reason, str) or len(reason) > 120: raise ValueError('Invalid player name.')
+        O.kick(name, reason.strip())
+        record('kick', 'warn', name=name, reason=reason.strip())
+        return jsonify(ok=True, message='Player kicked.')
+
+    @app.get('/api/activity')
+    def recent_activity(): return jsonify(activity(max(1, min(int(request.args.get('limit', 20)), 100))))
+
+    @app.get('/api/history')
+    def history(): return jsonify(O.history())
+
     @app.get('/api/config')
     def config():
         catalog = C.catalog(language())
@@ -168,7 +192,7 @@ def create_app():
                 if now-proposals[key]['time']>600: del proposals[key]
             if len(proposals)>30: raise ValueError('Too many previews; wait or save one.')
             ident = uuid.uuid4().hex
-            proposals[ident] = dict(time=now,user=session['generation'],base={k:C.digest(v) for k,v in current.items()},result=result)
+            proposals[ident] = dict(time=now,user=session['generation'],base={k:C.digest(v) for k,v in current.items()},result=result,count=len(differences))
         return jsonify(id=ident,differences=differences)
 
     @app.post('/api/commit')
@@ -188,28 +212,47 @@ def create_app():
             except Exception:
                 for scope,text in current.items(): atomic(S.DATA / 'Server' / S.FILES[scope],text)
                 raise
+        record('config', 'warn', count=proposal['count'], files=sorted(k for k,v in proposal['result'].items() if current[k]!=v))
         return jsonify(ok=True,message='Saved. The game server has not been restarted.')
 
     @app.get('/api/logs')
-    def logs(): return jsonify(text=O.logs())
+    def logs():
+        args = request.args
+        until = args.get('until')
+        return jsonify(O.logs(args.get('source', 'game'), args.get('cursor') or None,
+                              float(until) if until else None, int(args.get('lines', 1000))))
+
+    @app.get('/api/logs/download')
+    def logs_download():
+        source = request.args.get('source', 'game')
+        text = O.log_text(source)
+        stamp = dt.datetime.now().strftime('%Y%m%d-%H%M')
+        return Response(text, mimetype='text/plain', headers={'Content-Disposition': f'attachment; filename="{S.NAME}-{source}-{stamp}.log"'})
 
     @app.get('/api/backups')
-    def backups(): return jsonify(O.backup_list())
+    def backups(): return jsonify(backups=O.backup_list(), disk=O.disk_usage())
 
     @app.get('/api/mods')
-    def mods(): return jsonify(O.installed_mods())
+    def mods(): return jsonify(O.mods_report())
 
     @app.post('/api/operations')
     def operate():
         data = request.get_json(); action = data.get('action')
         if action not in ('start','stop','restart','backup','restore','update'): raise ValueError('Action not allowed.')
-        payload = {'confirmed': data.get('confirmed') is True, 'backup':data.get('backup')}
+        payload = {'confirmed': data.get('confirmed') is True, 'backup':data.get('backup'), 'notice': notice(action, language())}
         with jobs_lock:
             if any(j['state']=='running' for j in jobs.values()): raise ValueError('An operation is already running.')
             if len(jobs)>50: jobs.clear()
-            ident=uuid.uuid4().hex; jobs[ident]={'id':ident,'state':'running','message':'Preparing','action':action}
+            ident=uuid.uuid4().hex
+            jobs[ident]={'id':ident,'state':'running','message':'Preparing','action':action,'backup':payload['backup'],
+                         'steps':O.STEPS[action],'step':None,'done':[],'started':time.time(),'user':session.get('user')}
         def progress(message):
-            with jobs_lock: jobs[ident]['message']=message
+            with jobs_lock:
+                job=jobs[ident]; job['message']=message; step=O.STEP_OF.get(message)
+                if step and step!=job['step']:
+                    if job['step']: job['done'].append(job['step'])
+                    job['step']=step
+                write_json(S.STATE / 'last-operation.json',job)
         def run():
             try: result=O.execute(action,payload,progress); state='done'
             except Exception as e:
@@ -217,14 +260,17 @@ def create_app():
                 state='error'
                 if not isinstance(e,ValueError): app.logger.exception('Operation %s failed',action)
             with jobs_lock:
-                jobs[ident].update(state=state,message=result)
-                write_json(S.STATE / 'last-operation.json',jobs[ident])
+                job=jobs[ident]
+                if state=='done' and job['step']: job['done'].append(job['step']); job['step']=None
+                job.update(state=state,message=result,finished=time.time())
+                write_json(S.STATE / 'last-operation.json',job)
+            record(action if action=='backup' else 'operation', 'ok' if state=='done' else 'error', action=action, message=result)
         threading.Thread(target=run,daemon=True).start()
         return jsonify(id=ident),202
 
     @app.get('/api/operations/<ident>')
     def job(ident):
-        with jobs_lock: value = jobs.get(ident)
+        with jobs_lock: value = copy.deepcopy(jobs.get(ident))
         if value is None: abort(404)
         return jsonify(value)
 
@@ -248,5 +294,12 @@ def create_admin():
 if __name__ == '__main__':
     import sys
     if sys.argv[1:] == ['create-admin']: create_admin()
-    elif not sys.argv[1:]: serve(create_app(),host=S.BIND,port=S.PORT,threads=6, max_request_body_size=1024*1024)
+    elif not sys.argv[1:]:
+        def sampler():
+            while True:
+                try: O.sample()
+                except Exception: pass
+                time.sleep(60)
+        threading.Thread(target=sampler, daemon=True).start()
+        serve(create_app(),host=S.BIND,port=S.PORT,threads=8, max_request_body_size=1024*1024)
     else: raise SystemExit('Usage: app.py [create-admin]')

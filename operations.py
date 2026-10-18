@@ -7,11 +7,13 @@ import socket
 import subprocess
 import tarfile
 import tempfile
+import threading
 import time
+from collections import deque
 from pathlib import Path, PurePosixPath
 
 import settings as S
-from common import atomic, write_json, locked
+from common import atomic, write_json, locked, record
 from configuration import read_all, digest, SECRET, Document
 
 def command(args, timeout=20):
@@ -20,17 +22,17 @@ def command(args, timeout=20):
 def systemctl(action):
     if action not in ('start', 'stop', 'is-active', 'show'): raise ValueError('Invalid action.')
     args = ['systemctl', '--user', action, S.SERVICE]
-    if action == 'show': args += ['-p', 'ActiveState', '-p', 'MemoryCurrent', '-p', 'MainPID']
+    if action == 'show': args += ['-p', 'ActiveState', '-p', 'MemoryCurrent', '-p', 'MainPID', '-p', 'ActiveEnterTimestampMonotonic']
     result = command(args, timeout=360)
     if action in ('start', 'stop') and result.returncode: raise ValueError('systemd could not ' + action + ' the service.')
     return result.stdout.strip()
 
-def console(cmd):
-    if cmd not in ('players', 'save', 'quit'): raise ValueError('Invalid command.')
+def console(cmd, **args):
+    if cmd not in ('players', 'save', 'quit', 'message', 'kick'): raise ValueError('Invalid command.')
     try:
         with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as sock:
             sock.settimeout(100); sock.connect(str(S.SOCKET))
-            sock.sendall((json.dumps({'command': cmd}) + '\n').encode())
+            sock.sendall((json.dumps({'command': cmd, 'args': args}) + '\n').encode())
             data = b''
             while b'\n' not in data:
                 block = sock.recv(4096)
@@ -41,21 +43,86 @@ def console(cmd):
     if result.get('error'): raise ValueError(result['error'])
     return result
 
-def players():
-    if systemctl('is-active') not in ('active', 'activating'): return {'count': 0, 'names': []}
-    try: return console('players')
-    except ValueError as e: return {'count': None, 'names': [], 'error': str(e)}
+_first_seen = {}
 
-def redact(text):
+def players():
+    if systemctl('is-active') not in ('active', 'activating'):
+        _first_seen.clear(); return {'count': 0, 'names': [], 'since': {}}
+    try: result = console('players')
+    except ValueError as e: return {'count': None, 'names': [], 'since': {}, 'error': str(e)}
+    try: joined = json.loads((S.STATE / 'sessions.json').read_text())
+    except (OSError, ValueError): joined = {}
+    now = time.time()
+    for name in list(_first_seen):
+        if name not in result['names']: del _first_seen[name]
+    # Join time from the game log when the runner saw it; otherwise the first time the panel saw them.
+    result['since'] = {name: joined.get(name) or _first_seen.setdefault(name, now) for name in result['names']}
+    return result
+
+def broadcast(text):
+    return console('message', text=text)
+
+def kick(name, reason=''):
+    if name not in players()['names']: raise ValueError('That player is not connected.')
+    return console('kick', user=name, reason=reason or None)
+
+def secrets():
+    values = []
     for content in read_all().values():
         for line in content.splitlines():
             if '=' in line:
                 key, value = line.split('=', 1)
-                if SECRET.search(key) and value.strip(): text = text.replace(value.strip(), '[hidden]')
+                if SECRET.search(key) and value.strip(): values.append(value.strip())
+    return values
+
+def redact(text, hidden=None):
+    for value in (secrets() if hidden is None else hidden): text = text.replace(value, '[hidden]')
     return re.sub(r'(?i)((?:password|secret|token)\s*[=:]\s*)\S+', r'\1[oculto]', text)
 
-def logs():
-    result = command(['journalctl', '--user-unit', S.SERVICE, '-n', '160', '--no-pager', '-o', 'cat'])
+LOG_UNITS = {'game': S.SERVICE, 'panel': 'zomboid-panel.service', 'backup': 'zomboid-backup.service'}
+LOG_LINE = re.compile(r'^(?P<level>LOG|INFO|WARN|WARNING|ERROR|SEVERE|DEBUG|TRACE)\s*:\s*(?P<category>[A-Za-z][\w.-]*)'
+                      r'[\s,]*(?:f:\d+,\s*)?(?:t:)?(?:\d{10,}>)?\s*(?:[\d,]+>)?\s*(?P<text>.*)$')
+LEVELS = {'WARN': 'warn', 'WARNING': 'warn', 'ERROR': 'error', 'SEVERE': 'error'}
+CONNECTION = re.compile(r'connect|login|logged in|kicked|ConnectionManager|RakNet', re.I)
+
+def parse_log_line(text):
+    m = LOG_LINE.match(text)
+    if m:
+        level, category, body = LEVELS.get(m['level'], 'info'), m['category'], m['text']
+    else:
+        level, category, body = 'info', '', text
+        if re.search(r'\b(?:Exception|Error)\b|^\s+at \S+\(', text): level = 'error'
+        elif re.search(r'\bwarn(?:ing)?\b', text, re.I): level = 'warn'
+    connection = category in ('Network', 'Multiplayer') or bool(CONNECTION.search(body))
+    return {'level': level, 'category': category, 'text': body, 'connection': connection}
+
+def logs(source='game', cursor=None, until=None, lines=1000):
+    """Structured journal entries. cursor follows new lines; until pages to older ones."""
+    if source not in LOG_UNITS: raise ValueError('Invalid log source.')
+    lines = max(1, min(int(lines), 5000))
+    args = ['journalctl', '--user-unit', LOG_UNITS[source], '-o', 'json', '--no-pager', '-n', str(lines)]
+    if cursor:
+        if not isinstance(cursor, str) or len(cursor) > 512 or not re.fullmatch(r'[\w;=+-]+', cursor): raise ValueError('Invalid log cursor.')
+        args += ['--after-cursor', cursor]
+    elif until is not None: args += ['--until', '@%.6f' % float(until)]
+    output = command(args, timeout=30).stdout
+    entries, last = [], cursor
+    hidden = secrets()
+    for raw in output.splitlines():
+        try: item = json.loads(raw)
+        except ValueError: continue
+        text = item.get('MESSAGE', '')
+        if isinstance(text, list): text = bytes(text).decode('utf-8', 'replace')
+        if not isinstance(text, str): continue
+        last = item.get('__CURSOR', last)
+        entry = parse_log_line(redact(text.rstrip(), hidden))
+        entry['time'] = int(item.get('__REALTIME_TIMESTAMP', 0)) / 1e6
+        entries.append(entry)
+    return {'entries': entries, 'cursor': last}
+
+def log_text(source='game'):
+    if source not in LOG_UNITS: raise ValueError('Invalid log source.')
+    result = command(['journalctl', '--user-unit', LOG_UNITS[source], '-n', '5000', '--no-pager', '-o', 'short-iso'], timeout=30)
     return redact(result.stdout)
 
 def same_configuration(scope, before, after):
@@ -82,9 +149,57 @@ def status():
             pending.append(scope)
     version_text = command(['journalctl', '--user-unit', S.SERVICE, '-g', 'version=', '-n', '1', '--no-pager', '-o', 'cat']).stdout
     version = re.search(r'\bversion=([\w.]+)', version_text)
+    uptime = None
+    entered = props.get('ActiveEnterTimestampMonotonic', '')
+    if props.get('ActiveState') == 'active' and entered.isdigit() and int(entered):
+        # systemd and time.monotonic() share CLOCK_MONOTONIC on Linux.
+        uptime = max(0, time.monotonic() - int(entered) / 1e6)
+    try: max_players = Document('server', current_text['server']).fields['MaxPlayers'].value
+    except (KeyError, ValueError): max_players = None
+    backups = backup_list()
     return {'state': props.get('ActiveState'), 'memory': props.get('MemoryCurrent'),
             'version': version[1] if version else 'Desconocida', 'console': S.SOCKET.exists(),
-            'pending': pending, 'applied_known': bool(applied)}
+            'pending': pending, 'pending_changes': pending_changes(applied_values, current_text, pending),
+            'applied_known': bool(applied), 'name': S.NAME, 'uptime': uptime, 'max_players': max_players,
+            'last_backup': backups[0] if backups else None}
+
+def pending_changes(applied_values, current_text, pending):
+    """Saved values that differ from the ones read at the last start, per file."""
+    result = {}
+    for scope in pending:
+        try:
+            before = Document(scope, applied_values[scope]).fields
+            after = Document(scope, current_text[scope]).fields
+        except (KeyError, ValueError):
+            result[scope] = None; continue
+        keys = [k for k in after if k not in before or before[k].value != after[k].value] + [k for k in before if k not in after]
+        result[scope] = len(keys)
+    return result
+
+_samples = deque(maxlen=240)
+_samples_lock = threading.Lock()
+
+def sample():
+    """Record service memory for the overview chart; called every minute by the panel."""
+    props = dict(x.split('=', 1) for x in systemctl('show').splitlines() if '=' in x)
+    memory = props.get('MemoryCurrent', '')
+    value = int(memory) if memory.isdigit() and props.get('ActiveState') == 'active' else None
+    with _samples_lock:
+        _load_samples()
+        _samples.append({'time': time.time(), 'memory': value})
+        write_json(S.STATE / 'metrics.json', list(_samples))
+
+def _load_samples():
+    # Restore the saved history after a panel restart; caller holds _samples_lock.
+    if _samples: return
+    try: _samples.extend(json.loads((S.STATE / 'metrics.json').read_text()))
+    except (OSError, ValueError): pass
+
+def history():
+    with _samples_lock:
+        _load_samples()
+        cutoff = time.time() - 4 * 3600
+        return [x for x in _samples if x['time'] >= cutoff]
 
 def validate_archive(path):
     size, names = 0, set()
@@ -122,8 +237,23 @@ def backup(label):
         for old in sorted(S.BACKUPS.glob('zomboid-daily-*.tar.gz'), reverse=True)[7:]: old.unlink()
     return path.name
 
+BACKUP_KINDS = {'daily': 'automatic', 'manual': 'manual', 'pre-update': 'rescue', 'pre-restore': 'rescue'}
+
 def backup_list():
-    return [{'name': p.name, 'size': p.stat().st_size, 'mtime': p.stat().st_mtime} for p in sorted(S.BACKUPS.glob('zomboid-*.tar.gz'), reverse=True) if p.is_file() and not p.is_symlink()]
+    result = []
+    for p in S.BACKUPS.glob('zomboid-*.tar.gz'):
+        if not p.is_file() or p.is_symlink(): continue
+        label = re.match(r'zomboid-(daily|manual|pre-update|pre-restore)-', p.name)
+        info = p.stat()
+        result.append({'name': p.name, 'size': info.st_size, 'mtime': info.st_mtime,
+                       'kind': BACKUP_KINDS[label[1]] if label else 'other', 'label': label[1] if label else None})
+    return sorted(result, key=lambda b: b['mtime'], reverse=True)
+
+def disk_usage():
+    total = sum(b['size'] for b in backup_list())
+    try: free = shutil.disk_usage(S.BACKUPS).free
+    except OSError: free = None
+    return {'used': total, 'free': free}
 
 def resolve_backup(name):
     if not isinstance(name, str) or not re.fullmatch(r'zomboid-[\w-]+\.tar\.gz', name): raise ValueError('Invalid backup name.')
@@ -184,6 +314,16 @@ def restore(path):
             old.rename(S.DATA); raise
         # pre-restore backup is verified before this function; previous is recoverable there.
 
+# Steps shown in the panel while an operation runs, keyed by the progress messages below.
+STEPS = {'start': ['start'], 'stop': ['warn', 'stop'], 'restart': ['warn', 'stop', 'start'],
+         'backup': ['warn', 'stop', 'backup', 'start'], 'restore': ['warn', 'stop', 'safety', 'restore', 'start'],
+         'update': ['warn', 'stop', 'safety', 'steamcmd', 'start', 'version']}
+STEP_OF = {'Warning connected players': 'warn', 'Saving and shutting down gracefully': 'stop',
+           'Starting': 'start', 'Starting and checking': 'start', 'Creating and verifying backup': 'backup',
+           'Creating a safety backup': 'safety', 'Restoring validated backup': 'restore',
+           'Updating with SteamCMD; this may take several minutes': 'steamcmd', 'Checking version': 'version'}
+WARNING_SECONDS = 10
+
 def execute(action, payload, progress):
     if action not in ('start', 'stop', 'restart', 'backup', 'restore', 'update'): raise ValueError('Invalid operation.')
     with locked():
@@ -195,16 +335,21 @@ def execute(action, payload, progress):
         if payload.get('automatic') and state['count'] != 0: return 'Deferred: players are connected or their status is unknown.'
         target = resolve_backup(payload.get('backup')) if action == 'restore' else None
         if target: validate_archive(target)
+        if state.get('count') and payload.get('notice'):
+            progress('Warning connected players')
+            try:
+                broadcast(payload['notice']); time.sleep(WARNING_SECONDS)
+            except ValueError: pass
         progress('Saving and shutting down gracefully')
         was_active = preserve_stop()
         if action == 'stop': return 'Server stopped; saved configuration preserved.'
-        if action == 'restart': start(); return 'Server restarted.'
+        if action == 'restart': progress('Starting and checking'); start(); return 'Server restarted.'
         if action == 'backup':
             try:
                 progress('Creating and verifying backup')
                 result = backup('daily' if payload.get('automatic') else 'manual')
             finally:
-                if was_active: start()
+                if was_active: progress('Starting and checking'); start()
             return 'Verified backup: ' + result
         progress('Creating a safety backup')
         backup('pre-restore' if action == 'restore' else 'pre-update')
@@ -221,24 +366,57 @@ def execute(action, payload, progress):
                 raise ValueError('A version other than Build 42 was detected; review before starting.')
         if was_active:
             progress('Starting and checking'); start()
+            if action == 'update': progress('Checking version')
             if action == 'update' and not status()['version'].startswith('42.'):
                 preserve_stop(); raise ValueError('The version is not Build 42. Server stopped; safety backup available.')
         return 'Restore completed.' if action == 'restore' else 'Update completed.'
 
+def mod_ids(text):
+    """Mods line and mod.info 'require' entries: separated by ; or , and optionally prefixed by a backslash (Build 42)."""
+    return [x.strip().lstrip('\\').strip() for x in re.split(r'[;,]', text or '') if x.strip().lstrip('\\').strip()]
+
 def installed_mods():
-    roots = [S.DATA / 'mods', S.GAME / 'steamapps/workshop/content/108600', S.STEAM.parent / 'steamapps/workshop/content/108600']
-    found = []
-    for root in roots:
+    roots = [(S.DATA / 'mods', False), (S.GAME / 'steamapps/workshop/content/108600', True), (S.STEAM.parent / 'steamapps/workshop/content/108600', True)]
+    found = {}
+    for root, workshop in roots:
         if not root.exists(): continue
-        for p in root.rglob('mod.info'):
+        for p in sorted(root.rglob('mod.info')):
             if p.is_symlink() or p.stat().st_size > 100000: continue
             vals = {}
             for line in p.read_text(errors='replace').splitlines():
                 if '=' in line:
                     key,value = line.split('=',1)
-                    if key in ('id','name','require','versionMin','versionMax'): vals[key] = value
-            vals['path'] = str(p.relative_to(root)); found.append(vals)
-    return found
+                    key = key.strip()
+                    if key in ('id','name','require','versionMin','versionMax'): vals[key] = value.strip()
+            relative = p.relative_to(root)
+            vals['path'] = str(relative)
+            vals['workshop'] = relative.parts[0] if workshop and relative.parts[0].isdigit() else None
+            vals['requires'] = mod_ids(vals.pop('require', ''))
+            ident = vals.get('id') or relative.parent.name
+            vals['id'] = ident
+            # Build 42 mods ship mod.info in several folders (common, 42, ...); prefer the 42 one.
+            if ident not in found or '42' in relative.parts: found[ident] = vals
+    return sorted(found.values(), key=lambda m: (m.get('name') or m['id']).lower())
+
+def mods_report():
+    """Installed mods cross-checked against the saved Mods line of the server INI."""
+    try: fields = Document('server', read_all()['server']).fields
+    except (KeyError, ValueError): fields = {}
+    active_raw = [x for x in (fields['Mods'].value if 'Mods' in fields else '').split(';') if x.strip()]
+    active = [x.strip().lstrip('\\') for x in active_raw]
+    workshop = [x for x in (fields['WorkshopItems'].value if 'WorkshopItems' in fields else '').split(';') if x.strip()]
+    installed = installed_mods()
+    known = {m['id'] for m in installed}
+    issues = []
+    for position, ident in enumerate(active):
+        mod = next((m for m in installed if m['id'] == ident), None)
+        if not mod:
+            issues.append({'kind': 'not-installed', 'mod': ident}); continue
+        for dep in mod['requires']:
+            if dep not in active: issues.append({'kind': 'missing', 'mod': ident, 'name': mod.get('name') or ident, 'requires': dep, 'installed': dep in known})
+            elif active.index(dep) > position: issues.append({'kind': 'order', 'mod': ident, 'name': mod.get('name') or ident, 'requires': dep})
+    return {'installed': installed, 'active': active_raw, 'workshop': workshop, 'issues': issues,
+            'editable': 'Mods' in fields}
 
 def daily():
     import sys
@@ -251,8 +429,11 @@ def daily():
     try:
         result = execute('backup', {'confirmed':True, 'automatic':True}, lambda msg: print(msg, flush=True))
         print(result)
-        if result.startswith('Verified backup:'): write_json(marker, {'date':today.date().isoformat()})
+        if result.startswith('Verified backup:'):
+            write_json(marker, {'date':today.date().isoformat()})
+            record('backup', 'ok', automatic=True, message=result)
     except Exception as e:
+        record('backup', 'error', automatic=True, message=str(e) if isinstance(e, ValueError) else 'Operation error; check the panel service log.')
         print(str(e), file=sys.stderr); raise SystemExit(1)
 
 if __name__ == '__main__': daily()

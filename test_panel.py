@@ -122,7 +122,7 @@ class BackupTests(TemporaryServer):
             start.assert_not_called()
             self.assertEqual(len(list(S.BACKUPS.glob('zomboid-pre-update-*'))),1)
 
-class WebTests(TemporaryServer):
+class WebBase(TemporaryServer):
     def setUp(self):
         super().setUp()
         from app import create_app
@@ -135,6 +135,8 @@ class WebTests(TemporaryServer):
     def login(self):
         result=self.post('login',{'username':'admin','password':'test-password-long'})
         self.assertEqual(result.status_code,200);self.csrf=result.json['csrf']
+
+class WebTests(WebBase):
     def test_auth_csrf_network(self):
         self.assertEqual(self.client.get('/api/config').status_code,401)
         self.login()
@@ -195,11 +197,153 @@ class ConsoleTests(TemporaryServer):
             self.assertEqual(O.console('players'),{'count':2,'names':['Alice','Bob']})
             with self.assertRaises(ValueError):O.console('rm -rf /')
             self.assertEqual(O.console('save'),{'saved':True})
+            self.assertEqual(O.console('message',text='Restart in "5" minutes'),{'sent':True})
+            with self.assertRaises(ValueError):O.console('kick',user='bad"name')
             self.assertTrue(O.console('quit')['sent'])
             self.assertEqual(proc.wait(timeout=10),0)
             self.assertTrue(json.loads((S.STATE/'game-exit.json').read_text())['graceful'])
         finally:
             if proc.poll() is None:proc.terminate();proc.wait(timeout=10)
             proc.stderr.close()
+
+class RunnerTests(unittest.TestCase):
+    def test_console_lines_are_quoted_and_limited(self):
+        import runner
+        self.assertEqual(runner.console_line('message',{'text':'Hi "all"\nnow'}),'servermsg "Hi \'all\' now"')
+        self.assertEqual(runner.console_line('kick',{'user':'Kate','reason':'afk'}),'kickuser "Kate" -r "afk"')
+        self.assertEqual(runner.console_line('kick',{'user':'Kate'}),'kickuser "Kate"')
+        self.assertEqual(runner.console_line('players',{}),'players')
+        for args in ({'user':'a"b'},{'user':''},{'user':'x'*65}):
+            with self.assertRaises(ValueError): runner.console_line('kick',args)
+        for text in ('','   ','x'*201,None):
+            with self.assertRaises(ValueError): runner.console_line('message',{'text':text})
+
+class ActivityTests(TemporaryServer):
+    def test_feed_is_newest_first_and_capped(self):
+        import common
+        for i in range(common.ACTIVITY_LIMIT+5): common.record('config','warn',count=i)
+        events=common.activity(3)
+        self.assertEqual([e['params']['count'] for e in events],[104,103,102])
+        self.assertEqual(len(json.loads((S.STATE/'activity.json').read_text())),common.ACTIVITY_LIMIT)
+
+class LogTests(TemporaryServer):
+    def test_parse_game_lines(self):
+        e=O.parse_log_line('WARN : General      f:0, t:1729258258004> Slow chunk load at 34,21')
+        self.assertEqual((e['level'],e['category'],e['text']),('warn','General','Slow chunk load at 34,21'))
+        e=O.parse_log_line('LOG  : Network     , 1729258258004> 12,345> ConnectionManager: [fully-connected] username="Kate"')
+        self.assertEqual((e['level'],e['category'],e['connection']),('info','Network',True))
+        self.assertTrue(e['text'].startswith('ConnectionManager'))
+        self.assertEqual(O.parse_log_line('ERROR: Lua f:0, t:1729258258004> boom')['level'],'error')
+        self.assertEqual(O.parse_log_line('\tat zombie.Lua.call(Lua.java:12)')['level'],'error')
+        self.assertEqual(O.parse_log_line('plain line')['level'],'info')
+    def test_journal_entries_redacted_with_cursor(self):
+        from subprocess import CompletedProcess
+        lines=[json.dumps({'MESSAGE':'LOG  : General f:0, t:1729258258004> password is old-secret','__REALTIME_TIMESTAMP':'1729258258004000','__CURSOR':'s=1;i=1'}),
+               json.dumps({'MESSAGE':[104,105],'__REALTIME_TIMESTAMP':'1729258259000000','__CURSOR':'s=1;i=2'}),'not json']
+        with patch.object(O,'command',return_value=CompletedProcess([],0,'\n'.join(lines),'')) as cmd:
+            result=O.logs('game',cursor='s=1;i=0')
+        self.assertIn('--after-cursor',cmd.call_args[0][0])
+        self.assertEqual(result['cursor'],'s=1;i=2')
+        self.assertNotIn('old-secret',json.dumps(result))
+        self.assertEqual(result['entries'][1]['text'],'hi')
+        self.assertAlmostEqual(result['entries'][0]['time'],1729258258.004)
+        for bad in ({'source':'other'},{'source':'game','cursor':'x --since'}):
+            with self.assertRaises(ValueError): O.logs(**bad)
+
+class ModsTests(TemporaryServer):
+    def mod(self,root,folder,info):
+        atomic(root/folder/'mod.info',info)
+    def test_dependencies_order_and_missing(self):
+        workshop=S.GAME/'steamapps/workshop/content/108600'
+        self.mod(workshop/'111/mods/Lib','common','name=Lib\nid=Lib\n')
+        self.mod(workshop/'111/mods/Lib','42','name=Lib B42\nid=Lib\nversionMin=42.0\n')
+        self.mod(workshop/'222/mods/Cars','42','name=Cars\nid=Cars\nrequire=\\Lib,\\Extra\n')
+        self.mod(S.DATA/'mods','Local','name=Local\nid=Local\nrequire=Cars\n')
+        atomic(S.DATA/'Server'/S.FILES['server'],INI.replace('Mods=\n','Mods=\\Local;\\Cars;Ghost\n'))
+        report=O.mods_report()
+        mods={m['id']:m for m in report['installed']}
+        self.assertEqual(mods['Lib']['name'],'Lib B42');self.assertEqual(mods['Lib']['workshop'],'111')
+        self.assertIsNone(mods['Local']['workshop']);self.assertEqual(mods['Cars']['requires'],['Lib','Extra'])
+        issues={(i['kind'],i['mod'],i.get('requires')) for i in report['issues']}
+        self.assertEqual(issues,{('order','Local','Cars'),('missing','Cars','Lib'),('missing','Cars','Extra'),('not-installed','Ghost',None)})
+        self.assertEqual(report['active'],['\\Local','\\Cars','Ghost'])
+
+class StatusTests(TemporaryServer):
+    def test_status_details(self):
+        import time as clock
+        from subprocess import CompletedProcess
+        write_json(S.STATE/'applied-values.json',{'server':INI.replace('MaxPlayers=8','MaxPlayers=4').replace('PVP=false','PVP=true'),'sandbox':LUA})
+        write_json(S.STATE/'applied.json',{'server':'x','sandbox':'y'})
+        O.backup('manual')
+        show=f'ActiveState=active\nMemoryCurrent=1024\nMainPID=1\nActiveEnterTimestampMonotonic={int(max(1,clock.monotonic()-60)*1e6)}'
+        with patch.object(O,'systemctl',return_value=show),patch.object(O,'command',return_value=CompletedProcess([],0,'version=42.12.3','')):
+            s=O.status()
+        self.assertEqual(s['pending'],['server']);self.assertEqual(s['pending_changes'],{'server':2})
+        self.assertEqual(s['max_players'],8);self.assertEqual(s['version'],'42.12.3')
+        self.assertGreater(s['uptime'],0);self.assertEqual(s['last_backup']['kind'],'manual')
+    def test_memory_history(self):
+        with patch.object(O,'systemctl',return_value='ActiveState=active\nMemoryCurrent=2048'):
+            O._samples.clear();O.sample()
+        self.assertEqual(O.history()[-1]['memory'],2048)
+        O._samples.clear()
+        self.assertEqual(O.history()[-1]['memory'],2048)
+        O._samples.clear()
+        # A panel restart keeps the saved history when the sampler runs before any request
+        with patch.object(O,'systemctl',return_value='ActiveState=active\nMemoryCurrent=4096'):
+            O.sample()
+        self.assertEqual([x['memory'] for x in O.history()[-2:]],[2048,4096])
+        O._samples.clear()
+
+class PanelApiTests(WebBase):
+    def test_message_kick_and_activity(self):
+        self.login()
+        calls=[]
+        def console(cmd,**args):
+            calls.append((cmd,args))
+            return {'count':1,'names':['Kate']} if cmd=='players' else {'sent':True}
+        with patch.object(O,'console',side_effect=console),patch.object(O,'systemctl',return_value='active'):
+            self.assertEqual(self.post('players/message',{'text':'hola'}).status_code,200)
+            self.assertEqual(self.post('players/message',{'text':''}).status_code,400)
+            self.assertEqual(self.post('players/kick',{'name':'Kate','reason':'afk'}).status_code,200)
+            self.assertEqual(self.post('players/kick',{'name':'Nobody'}).json['error'],'That player is not connected.')
+        self.assertIn(('message',{'text':'hola'}),calls)
+        self.assertIn(('kick',{'user':'Kate','reason':'afk'}),calls)
+        kinds=[e['kind'] for e in self.client.get('/api/activity').json]
+        self.assertEqual(kinds,['kick','message'])
+    def test_operation_steps_and_activity(self):
+        import time
+        self.login()
+        def execute(action,payload,progress):
+            progress('Warning connected players');progress('Saving and shutting down gracefully');progress('Starting and checking')
+            return 'Server restarted.'
+        with patch.object(O,'execute',side_effect=execute):
+            ident=self.post('operations',{'action':'restart','confirmed':True}).json['id']
+            for _ in range(50):
+                job=self.client.get('/api/operations/'+ident).json
+                if job['state']!='running':break
+                time.sleep(.05)
+        self.assertEqual(job['state'],'done');self.assertEqual(job['done'],['warn','stop','start'])
+        self.assertEqual(job['steps'],O.STEPS['restart']);self.assertEqual(job['user'],'admin')
+        event=self.client.get('/api/activity').json[0]
+        self.assertEqual((event['kind'],event['state'],event['params']['action']),('operation','ok','restart'))
+    def test_read_endpoints(self):
+        self.login()
+        O.backup('manual')
+        data=self.client.get('/api/backups').json
+        self.assertEqual(data['backups'][0]['kind'],'manual');self.assertIn('used',data['disk'])
+        self.assertIn('issues',self.client.get('/api/mods').json)
+        self.assertIsInstance(self.client.get('/api/history').json,list)
+        with patch.object(O,'logs',return_value={'entries':[],'cursor':None}) as logs:
+            self.assertEqual(self.client.get('/api/logs?source=panel&cursor=c&lines=10').status_code,200)
+        logs.assert_called_with('panel','c',None,10)
+        with patch.object(O,'log_text',return_value='line'):
+            r=self.client.get('/api/logs/download?source=game')
+        self.assertIn('attachment',r.headers['Content-Disposition']);self.assertEqual(r.data,b'line')
+    def test_notice_in_session_language(self):
+        self.client.get('/?lang=es');self.login()
+        with patch.object(O,'execute',return_value='ok') as execute:
+            self.post('operations',{'action':'stop','confirmed':True})
+            import time;time.sleep(.2)
+        self.assertIn('10 segundos',execute.call_args[0][1]['notice'])
 
 if __name__=='__main__': unittest.main()
