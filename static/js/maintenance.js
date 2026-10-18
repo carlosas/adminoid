@@ -15,11 +15,12 @@ function renderJob(){
   if(!recent)return;
   card.className='card operation'+(job.state==='done'?' done':job.state==='error'||job.state==='lost'?' error':'');
   const done=new Set(job.done||[]);
-  const steps=(job.steps||[]).map(step=>{
+  const current=(job.steps||[]).indexOf(job.step);
+  const steps=(job.steps||[]).map((step,i)=>{
     let state='pending';
     if(done.has(step))state='done';
     else if(step===job.step)state=job.state==='running'?'running':'failed';
-    else if(job.state==='done')state='skipped';
+    else if(job.state==='done'||i<current)state='skipped';
     const marker=state==='done'?icon('check'):el('span',{class:'marker'});
     return el('li',{class:state},el('div',{class:'bar'}),el('div',{class:'label'},marker,t('step_'+step),state==='skipped'?el('span',{class:'sr-only',text:t('skipped')}):null));
   });
