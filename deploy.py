@@ -45,11 +45,17 @@ def deploy(leave_stopped=False):
         print('Creating migration backup with the server stopped...',flush=True)
         print(O.backup('manual'),flush=True)
         old=S.STATE/'previous-units';old.mkdir(exist_ok=True,mode=0o700)
-        for name in ('zomboid.service','zomboid-panel.service','zomboid-backup.service','zomboid-backup.timer'):
+        for name in ('zomboid.service','adminoid.service','zomboid-backup.service','zomboid-backup.timer'):
             if (units/name).exists() and not (old/name).exists():atomic(old/name,(units/name).read_text())
             atomic(units/name,(S.BASE/'units'/name).read_text())
+        # The panel unit was called zomboid-panel.service before the project was renamed.
+        legacy=units/'zomboid-panel.service'
+        if legacy.exists():
+            if not (old/legacy.name).exists():atomic(old/legacy.name,legacy.read_text())
+            subprocess.run(['systemctl','--user','disable',legacy.name],check=False)
+            legacy.unlink()
         subprocess.run(['systemctl','--user','daemon-reload'],check=True)
-        subprocess.run(['systemctl','--user','enable','zomboid.service','zomboid-panel.service','zomboid-backup.timer'],check=True)
+        subprocess.run(['systemctl','--user','enable','zomboid.service','adminoid.service','zomboid-backup.timer'],check=True)
         subprocess.run(['systemctl','--user','restart','zomboid-backup.timer'],check=True)
         if active and not leave_stopped:
             print('Starting with local console and checking SERVER STARTED...',flush=True)
