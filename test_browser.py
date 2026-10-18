@@ -120,6 +120,11 @@ def main():
                 page.locator('.sidebar').get_by_role('link', name='Mods').click()
                 expect(page.locator('#workshop-rows')).to_contain_text('Common Sense')
                 page.get_by_role('button', name='Añadir mod del Workshop').click()
+                # An item without required items shows no requirements block
+                page.locator('#dialog input[name=workshop]').fill('3619862853')
+                expect(page.locator('#dialog .ws-item')).to_have_count(1)
+                expect(page.locator('#dialog .ws-preview')).not_to_contain_text('null')
+                expect(page.locator('#dialog .ws-preview')).not_to_contain_text('También necesita')
                 page.locator('#dialog input[name=workshop]').fill('https://steamcommunity.com/sharedfiles/filedetails/?id=3815999052&searchtext=')
                 expect(page.locator('#dialog .ws-item')).to_have_count(3)
                 expect(page.locator('#dialog')).to_contain_text('OldPoint - Rotating Overhead Camera')
