@@ -1,9 +1,11 @@
-# adminoid — Project Zomboid administration panel
+# Adminoid — Project Zomboid administration panel
+
+<img width="1252" height="820" alt="adminoid-demo" src="https://github.com/user-attachments/assets/190b0d95-7459-4d27-8524-9e43f6ad7bc0" />
 
 Web panel to administer a Project Zomboid (Build 42) dedicated server on Linux: settings, spawn points, mods, restarts, updates and backups.
-Built for the local network: plain HTTP without TLS, so it **must not be exposed to the Internet** nor have its port forwarded on the router.
+Built for the local network: HTTP without TLS, so it **must not be exposed to the Internet** nor forward its port on the router.
 
-The interface is available in English (default) and Spanish.
+The interface is available in English and Spanish.
 
 ## Requirements
 
