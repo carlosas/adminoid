@@ -1,6 +1,6 @@
 # Adminoid — Project Zomboid administration panel
 
-<img width="1252" height="820" alt="adminoid-demo" src="https://github.com/user-attachments/assets/190b0d95-7459-4d27-8524-9e43f6ad7bc0" />
+<img width="919" height="609" alt="Adminoid Overview" src="https://github.com/user-attachments/assets/7f4dbacb-ef0b-4e84-9d17-1332437afdb8" />
 
 Web panel to administer a Project Zomboid (Build 42) dedicated server on Linux: settings, spawn points, mods, restarts, updates and backups.
 Built for the local network: HTTP without TLS, so it **must not be exposed to the Internet** nor forward its port on the router.
@@ -15,7 +15,8 @@ The interface is available in English and Spanish.
 ## Installation
 
 ```bash
-cd ~/zomboid-panel
+git clone https://github.com/carlosas/adminoid.git
+cd ~/adminoid
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
 cp .env.example .env    # adjust paths, server name and IP
@@ -26,7 +27,7 @@ chmod 600 .env
 
 `create-admin` asks for the **panel** username and password, independent from the game administrator. The same command changes the credentials and invalidates previous sessions. There is no default password.
 
-`deploy.py` installs the units in `units/` into `~/.config/systemd/user/` (keeping the previous ones in `state/previous-units`), creates a backup with the server stopped and enables the game, the panel and the daily backup. The units assume the project lives in `~/zomboid-panel`.
+`deploy.py` installs the units in `units/` into `~/.config/systemd/user/` (keeping the previous ones in `state/previous-units`), creates a backup with the server stopped and enables the game, the panel and the daily backup. The units assume the project lives in `~/adminoid`.
 
 ## Configuration (`.env`)
 
@@ -70,8 +71,8 @@ Notes:
 ## Services
 
 ```bash
-systemctl --user status zomboid-panel.service zomboid.service zomboid-backup.timer
-journalctl --user-unit zomboid-panel.service -n 50 --no-pager
+systemctl --user status adminoid.service zomboid.service zomboid-backup.timer
+journalctl --user-unit adminoid.service -n 50 --no-pager
 ```
 
 The game service runs through runner.py: console over a private Unix socket, limited to `players`, `save`, `quit`, `servermsg` and `kickuser` (arguments are quoted and validated; nothing else reaches the console). The runner also records server starts, unexpected exits and player join times in `state/`. A runner started before this version only accepts players/save/quit: messages and kicks work after the next game restart. systemd sends SIGTERM to the wrapper, which requests quit and waits; TimeoutStopSec=360 is systemd's last resort, not a guarantee that the world is saved if the process hangs.
