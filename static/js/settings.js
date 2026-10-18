@@ -38,7 +38,6 @@ function buildCategories(){
 function matches([scope,f]){
   if(filter==='modified'&&!edited(scope,f))return false;
   if(filter==='pending'&&!pending(f))return false;
-  if((filter==='server'||filter==='sandbox')&&scope!==filter)return false;
   const q=$('#search').value.trim().toLocaleLowerCase();
   return !q||`${f.key} ${f.label} ${f.help} ${scope}`.toLocaleLowerCase().includes(q);
 }
@@ -46,7 +45,7 @@ function matches([scope,f]){
 function renderFilter(){
   const count=PZ.editCount();
   const pendingCount=categories.reduce((a,c)=>a+c.fields.filter(([,f])=>pending(f)).length,0);
-  const items=[['all',t('filterAll')],['modified',count?t('filterModifiedN',{n:count}):t('filterModified')],['pending',pendingCount?t('filterPendingN',{n:pendingCount}):t('filterPending')],['server',t('filterServer')],['sandbox',t('filterSandbox')]];
+  const items=[['all',t('filterAll')],['modified',count?t('filterModifiedN',{n:count}):t('filterModified')],['pending',pendingCount?t('filterPendingN',{n:pendingCount}):t('filterPending')]];
   $('#settings-filter').replaceChildren(...items.map(([id,label])=>el('button',{type:'button','aria-pressed':String(filter===id),text:label,onclick:()=>{filter=id;render();}})));
 }
 
@@ -56,14 +55,14 @@ function renderCategories(visible){
     if(c.group!==group){group=c.group;nodes.push(el('div',{class:'cat-group',text:t('group_'+group)}));}
     const changed=c.fields.some(([s,f])=>edited(s,f))||(c.id==='spawn'&&Object.keys(PZ.state.structures).length);
     const shown=c.id==='spawn'?'':c.fields.filter(matches).length;
-    nodes.push(el('button',{type:'button',class:'cat-link','aria-current':String(c.id===selected),onclick:()=>{selected=c.id;filter=['modified','pending'].includes(filter)?'all':filter;$('#search').value='';render();$('#fields').scrollIntoView({block:'start'});}},
+    nodes.push(el('button',{type:'button',class:'cat-link','aria-current':String(c.id===selected),onclick:()=>{selected=c.id;filter='all';$('#search').value='';render();$('#fields').scrollIntoView({block:'start'});}},
       el('span',{text:c.name}),el('span',{class:'count'},changed?el('span',{class:'dot warn'}):null,String(shown))));
   }
   nav.replaceChildren(...nodes);
 }
 
 function visibleCategories(){
-  const v=categories.filter(c=>c.id==='spawn'?filter==='all':c.fields.some(([s])=>!(filter==='server'||filter==='sandbox')||s===filter));
+  const v=categories.filter(c=>c.id==='spawn'?filter==='all':c.fields.length>0);
   if(!v.some(c=>c.id===selected))selected=v[0]?.id;
   return v;
 }
