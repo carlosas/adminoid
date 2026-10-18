@@ -418,6 +418,79 @@ def mods_report():
     return {'installed': installed, 'active': active_raw, 'workshop': workshop, 'issues': issues,
             'editable': 'Mods' in fields}
 
+# Steam Workshop lookups: title and Mod IDs from the item description, required items from its page.
+WORKSHOP_API = 'https://api.steampowered.com/ISteamRemoteStorage/GetPublishedFileDetails/v1/'
+WORKSHOP_PAGE = 'https://steamcommunity.com/sharedfiles/filedetails/?id='
+workshop_cache, workshop_lock = {}, threading.Lock()
+
+def fetch(url, data=None):
+    import urllib.request, urllib.parse
+    body = urllib.parse.urlencode(data).encode() if data else None
+    request = urllib.request.Request(url, data=body, headers={'User-Agent': 'adminoid'})
+    with urllib.request.urlopen(request, timeout=8) as r: return r.read(2_000_000).decode('utf-8', 'replace')
+
+def description_mod_ids(text):
+    """'Mod ID: a' lines (the convention on Project Zomboid Workshop pages), BBCode and HTML removed."""
+    found = []
+    for line in re.sub(r'\[/?[a-z0-9*]+(=[^\]]*)?\]|<[^>]+>', '', text or '', flags=re.I).splitlines():
+        match = re.match(r'\s*mod\s*ids?\s*[:=]\s*(.+)', line, re.I)
+        if not match: continue
+        for ident in mod_ids(match.group(1)):
+            if re.fullmatch(r'[^\s"<>\[\]]{1,100}', ident) and ident not in found: found.append(ident)
+    return found
+
+def required_items(page):
+    return list(dict.fromkeys(re.findall(r'<a [^>]*href="[^"]*filedetails/\?id=(\d+)"[^>]*>\s*<div class="requiredItem">', page)))
+
+def steam_items(ids):
+    """Steam data per Workshop ID, cached for an hour; items Steam could not answer are left out."""
+    now = time.time(); out = {}
+    with workshop_lock: missing = [i for i in ids if not (i in workshop_cache and now - workshop_cache[i]['at'] < 3600)]
+    if missing:
+        data = {'itemcount': len(missing), **{f'publishedfileids[{n}]': i for n, i in enumerate(missing)}}
+        try: details = json.loads(fetch(WORKSHOP_API, data))['response']['publishedfiledetails']
+        except Exception: details = []
+        def page(i):
+            try: return required_items(fetch(WORKSHOP_PAGE + i))
+            except Exception: return []
+        details = [d for d in details if d.get('result') == 1 and str(d.get('publishedfileid', '')).isdigit()]
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(4) as pool: pages = list(pool.map(page, [d['publishedfileid'] for d in details]))
+        for d, requires in zip(details, pages):
+            with workshop_lock:
+                workshop_cache[d['publishedfileid']] = {'at': now, 'title': d.get('title') or '', 'modIds': description_mod_ids(d.get('description')),
+                                                        'requires': [r for r in requires if r != d['publishedfileid']]}
+    with workshop_lock:
+        for i in ids:
+            if i in workshop_cache: out[i] = {k: v for k, v in workshop_cache[i].items() if k != 'at'}
+    return out
+
+def workshop_info(ids, depth=3):
+    """Workshop items with their Mod IDs plus the items they require, required ones first.
+    Mod IDs of downloaded items come from their mod.info files; the rest from the Workshop description."""
+    ids = [i for i in dict.fromkeys(ids) if re.fullmatch(r'\d{1,20}', i)][:20]
+    local = {}
+    for m in installed_mods():
+        if m['workshop']: local.setdefault(m['workshop'], []).append(m)
+    items, order, pending = {}, [], list(ids)
+    for _ in range(depth):
+        if not pending: break
+        steam = steam_items(pending)
+        for i in pending:
+            info = steam.get(i, {})
+            mods = local.get(i, [])
+            items[i] = {'id': i, 'title': info.get('title') or (mods[0].get('name') if len(mods) == 1 else ''),
+                        'modIds': [m['id'] for m in mods] or info.get('modIds', []), 'downloaded': bool(mods),
+                        'requires': info.get('requires', []), 'found': bool(info) or bool(mods)}
+        pending = [r for i in pending for r in items[i]['requires'] if r not in items][:20]
+    def visit(i, seen):
+        if i in seen or i not in items: return
+        seen.add(i)
+        for r in items[i]['requires']: visit(r, seen)
+        if i not in order: order.append(i)
+    for i in ids: visit(i, set())
+    return {'items': [items[i] for i in order]}
+
 def daily():
     import sys
     from common import initialize

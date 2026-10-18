@@ -170,9 +170,24 @@
 </section>
 
 <section id="view-mods" class="view" hidden>
-<div class="page-head"><div><h1 data-i18n="mods">Mods</h1><div class="sub" id="mods-summary"></div></div><button class="btn primary" id="add-workshop"><svg><use href="#i-plus"/></svg><span data-i18n="addWorkshop">Add by Workshop ID</span></button></div>
+<div class="page-head"><div><h1 data-i18n="mods">Mods</h1><div class="sub" id="mods-summary"></div></div><button class="btn primary" id="add-workshop"><svg><use href="#i-plus"/></svg><span data-i18n="addWorkshop">Add from the Workshop</span></button></div>
+<details class="card ids-help" id="ids-help">
+<summary data-i18n="idsHelpTitle">Workshop ID or Mod ID?</summary>
+<div class="ids-grid">
+<div><h3>Workshop ID <span class="mono small muted">2392709985</span></h3><p data-i18n="idsHelpWorkshop"></p></div>
+<div><h3>Mod ID <span class="mono small muted">tsarslib</span></h3><p data-i18n="idsHelpMod"></p></div>
+</div>
+<p class="small muted" data-i18n="idsHelpFoot"></p>
+</details>
 <div id="mod-issues" class="stack-gap"></div>
 <div id="mods-pending" class="banner amber" hidden></div>
+<section class="card flush" aria-labelledby="workshop-title">
+<div class="card-head padded"><div><h2 id="workshop-title" data-i18n="workshopItems">Workshop items</h2><div class="small muted" data-i18n="workshopItemsHelp"></div></div></div>
+<div class="table-wrap"><table class="table top">
+<thead><tr><th data-i18n="workshopItem">Item</th><th data-i18n="containsMods">Mods inside (Mod ID)</th><th data-i18n="download">Download</th><th><span class="sr-only" data-i18n="actions">Actions</span></th></tr></thead>
+<tbody id="workshop-rows"></tbody>
+</table></div>
+</section>
 <div class="mods-layout">
 <section class="card flush grow-main">
 <div class="toolbar padded">
@@ -180,7 +195,7 @@
 <div class="segmented" role="group" id="mod-filter" data-i18n-aria="filterMods" aria-label="Filter mods"></div>
 </div>
 <div class="table-wrap"><table class="table top">
-<thead><tr><th data-i18n="mod">Mod</th><th>Workshop</th><th data-i18n="gameVersionShort">Game version</th><th data-i18n="requires">Requires</th><th data-i18n="state">Status</th></tr></thead>
+<thead><tr><th data-i18n="installedMod">Installed mod · Mod ID</th><th>Workshop ID</th><th data-i18n="gameVersionShort">Game version</th><th data-i18n="requires">Requires</th><th data-i18n="state">Status</th></tr></thead>
 <tbody id="mod-rows"></tbody>
 </table></div>
 </section>

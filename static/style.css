@@ -316,6 +316,20 @@ main{flex:1;min-width:0;padding:28px 40px 48px;display:flex;flex-direction:colum
 .mod-name{font-weight:500}
 .mod-id{font:12px var(--mono);color:var(--dim)}
 .mod-state{display:flex;flex-direction:column;align-items:flex-start;gap:6px}
+.ids-help summary{cursor:pointer;font-weight:600}
+.ids-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px 24px;margin:12px 0 8px}
+.ids-grid h3{font-size:15px;font-weight:600;margin:0 0 4px}
+.ids-grid p{margin:0;font-size:14px;color:var(--soft)}
+.ids-help>p{margin:0}
+.ws-mods{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center}
+.ws-mod{display:inline-flex;align-items:center;gap:8px}
+.ws-preview{display:flex;flex-direction:column;gap:10px}
+.ws-preview:empty{display:none}
+.ws-preview p{margin:0}
+.ws-item{border:1px solid var(--line);border-radius:10px;padding:10px 14px;display:flex;flex-direction:column;gap:8px}
+.check{display:inline-flex;align-items:center;gap:8px;font-size:14px;cursor:pointer}
+.check input{width:18px;height:18px;accent-color:var(--accent);flex:none}
+.ws-title{align-items:flex-start}
 
 /* Logs */
 .log-panel{background:var(--sunk);border:1px solid var(--line);border-radius:12px;overflow:hidden;display:flex;flex-direction:column}

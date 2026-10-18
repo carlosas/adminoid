@@ -267,6 +267,24 @@ class ModsTests(TemporaryServer):
         issues={(i['kind'],i['mod'],i.get('requires')) for i in report['issues']}
         self.assertEqual(issues,{('order','Local','Cars'),('missing','Cars','Lib'),('missing','Cars','Extra'),('not-installed','Ghost',None)})
         self.assertEqual(report['active'],['\\Local','\\Cars','Ghost'])
+    def test_workshop_lookup(self):
+        from test_fixture import steam_fetch
+        self.assertEqual(O.description_mod_ids('[h1]Info[/h1]\r\nWorkshop ID: 1\r\n[b]Mod ID:[/b] A; \\B\nMod IDs: C, A\nmod id = <b>D</b>\nUses the mod ID: no'),['A','B','C','D'])
+        self.mod(S.GAME/'steamapps/workshop/content/108600'/'3619862853'/'mods'/'ZB','42','name=ZombieBuddy local\nid=ZombieBuddyLocal\n')
+        O.workshop_cache.clear()
+        with patch.object(O,'fetch',side_effect=steam_fetch) as fetch:
+            items=O.workshop_info(['3815999052','x','3815999052'])['items']
+            # Required items come first; a downloaded item reports the Mod IDs of its mod.info files.
+            self.assertEqual([i['id'] for i in items],['3619862853','3809306528','3815999052'])
+            self.assertEqual(items[0]['modIds'],['ZombieBuddyLocal']);self.assertTrue(items[0]['downloaded'])
+            self.assertEqual(items[2],{'id':'3815999052','title':'OldPoint - Rotating Overhead Camera','modIds':['OldPoint'],'downloaded':False,'requires':['3809306528','3619862853'],'found':True})
+            calls=fetch.call_count
+            O.workshop_info(['3815999052'])
+            self.assertEqual(fetch.call_count,calls)
+        O.workshop_cache.clear()
+        with patch.object(O,'fetch',side_effect=OSError('offline')):
+            self.assertEqual(O.workshop_info(['5'])['items'],[{'id':'5','title':'','modIds':[],'downloaded':False,'requires':[],'found':False}])
+        O.workshop_cache.clear()
 
 class StatusTests(TemporaryServer):
     def test_status_details(self):

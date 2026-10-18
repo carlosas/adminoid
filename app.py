@@ -235,6 +235,9 @@ def create_app():
     @app.get('/api/mods')
     def mods(): return jsonify(O.mods_report())
 
+    @app.get('/api/workshop')
+    def workshop(): return jsonify(O.workshop_info(request.args.get('ids', '').split(',')))
+
     @app.post('/api/operations')
     def operate():
         data = request.get_json(); action = data.get('action')
