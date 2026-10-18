@@ -54,6 +54,12 @@ class ParserTests(TemporaryServer):
         self.assertIn('Advanced',categories)
         self.assertNotIn('Avanzado',categories)
 
+    def test_start_year_next_to_start_month(self):
+        from types import SimpleNamespace as N
+        cats={('sandbox','StartMonth'):'Time'}
+        for key in ('StartMonth','StartYear'):
+            self.assertEqual(C.metadata('sandbox',N(key=key,help='',value=1,kind='integer'),{},cats)['category'],'Time')
+        self.assertEqual(C.metadata('sandbox',N(key='Other',help='',value=1,kind='integer'),{},cats)['category'],'Advanced')
     def test_ini_lossless_and_secret(self):
         text=C.Document('server',INI).edit({'Password':'a&b|$x"','PVP':True})
         self.assertEqual(text,INI.replace('old-secret','a&b|$x"').replace('PVP=false','PVP=true'))
