@@ -161,6 +161,14 @@ def main():
 
                 # Maintenance: restart with step progress, then a restore that needs the server name
                 page.locator('.sidebar').get_by_role('link', name='Mantenimiento').click()
+                # Game version: Steam has a newer build, so the update button shows until the server has it
+                expect(page.locator('#update-state')).to_have_text('Nueva versión disponible')
+                expect(page.get_by_role('button', name='Actualizar Build 42…')).to_be_visible()
+                fake['steam_build'] = '25485538'
+                page.get_by_role('button', name='Comprobar ahora').click()
+                expect(page.locator('#update-state')).to_have_text('Actualizada')
+                expect(page.locator('#update-detail')).to_contain_text('Es la última build publicada en Steam')
+                expect(page.get_by_role('button', name='Actualizar Build 42…')).to_be_hidden()
                 page.locator('#view-maintenance').get_by_role('button', name='Reiniciar…').click()
                 expect(page.locator('#dialog .names span')).to_have_count(2)
                 page.locator('#dialog').get_by_role('button', name='Guardar y reiniciar').click()

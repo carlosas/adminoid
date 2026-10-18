@@ -152,8 +152,11 @@
 <section class="card stack-gap">
 <h2 data-i18n="gameVersion">Game version</h2>
 <div class="version-line"><span class="display" id="version-build">Build 42</span><span class="mono small muted" id="version-full"></span></div>
+<div class="update-check"><span class="pill" id="update-state"></span><span class="small muted" id="update-detail"></span><button class="link small" type="button" id="update-refresh" data-i18n="checkNow">Check now</button></div>
+<div class="stack-gap" id="update-box" hidden>
 <p class="muted" data-i18n="updateHelp">Updating downloads the Build 42 branch with SteamCMD. A rescue backup is made first and, if the version is not Build 42, the server stays stopped.</p>
 <div><button class="btn" data-op="update"><svg><use href="#i-download"/></svg><span data-i18n="updateBuild">Update Build 42…</span></button></div>
+</div>
 </section>
 </div>
 <section class="card flush">

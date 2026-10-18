@@ -336,6 +336,27 @@ class StatusTests(TemporaryServer):
         self.assertEqual(s['pending'],['server']);self.assertEqual(s['pending_changes'],{'server':2})
         self.assertEqual(s['max_players'],8);self.assertEqual(s['version'],'42.12.3')
         self.assertGreater(s['uptime'],0);self.assertEqual(s['last_backup']['kind'],'manual')
+    def test_game_update_check(self):
+        from subprocess import CompletedProcess
+        import test_fixture as F
+        atomic(S.GAME/'steamapps'/'appmanifest_380870.acf','"AppState"\n{\n\t"buildid"\t\t"25485538"\n}\n')
+        steam=lambda build:CompletedProcess([],0,F.STEAM_APP_INFO.replace('{build}',build),'')
+        O.game_cache.clear()
+        with patch.object(O,'command',return_value=steam('25485538')) as run:
+            self.assertEqual(O.game_update(),{'installed':'25485538','latest':'25485538','published':1790178504,'checked':O.game_cache['latest']['checked'],'available':False})
+            O.game_update()  # cached: Steam is not asked again within the hour
+            self.assertEqual(run.call_count,1)
+        with patch.object(O,'command',return_value=steam('25600000')):
+            self.assertFalse(O.game_update()['available'])
+            self.assertTrue(O.game_update(refresh=True)['available'])
+        # Steam unreachable or an operation running: unknown, so the update button stays available
+        with patch.object(O,'command',return_value=CompletedProcess([],1,'Connection failed','')):
+            self.assertIsNone(O.game_update(refresh=True)['available'])
+        from common import locked
+        with patch.object(O,'command',return_value=steam('25485538')) as run, locked():
+            self.assertIsNone(O.game_update(refresh=True)['available'])
+            run.assert_not_called()
+        O.game_cache.clear()
     def test_memory_history(self):
         with patch.object(O,'systemctl',return_value='ActiveState=active\nMemoryCurrent=2048'):
             O._samples.clear();O.sample()

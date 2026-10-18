@@ -221,7 +221,7 @@ async function watchJob(id){
     if(job.state==='running'){jobTimer=setTimeout(()=>watchJob(id),1500);return;}
     try{localStorage.removeItem('pz-job');}catch{}
     toast(job.message,job.state==='done');
-    await Promise.allSettled([refreshStatus(),PZ.views.maintenance.loadBackups(),PZ.views.overview.loadActivity(),PZ.views.settings.refreshApplied()]);
+    await Promise.allSettled([refreshStatus(),PZ.views.maintenance.loadBackups(),PZ.views.maintenance.loadUpdate(),PZ.views.overview.loadActivity(),PZ.views.settings.refreshApplied()]);
   }catch(e){
     if(e.status===404){
       // The panel restarted mid-operation; show the last known record.

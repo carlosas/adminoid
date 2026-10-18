@@ -52,6 +52,25 @@ function renderService(){
     $('#version-build').textContent=/^42\./.test(v)?'Build 42':v||t('unknown');
     $('#version-full').textContent=/^42\./.test(v)?v:'';
   }
+  renderUpdate();
+}
+
+let update=null,checking=false;
+async function loadUpdate(refresh){
+  checking=true;renderUpdate();
+  try{update=await api('game-update'+(refresh===true?'?refresh=1':''));}
+  catch{update={available:null};}
+  finally{checking=false;renderUpdate();}
+}
+function renderUpdate(){
+  const u=update||{};const running=PZ.state.job?.state==='running';
+  const [color,key]=checking?['','updateChecking']:u.available===false?['green','upToDate']:u.available?['amber','updateAvailable']:['','updateUnknown'];
+  const state=$('#update-state');state.className='pill '+color;state.textContent=t(key);
+  $('#update-detail').textContent=checking?'':u.available?(u.published?t('updatePublished',{date:PZ.dayLabel(u.published)}):''):
+    u.available===false?t('updateChecked',{time:ago(u.checked)}):update?t('updateUnknownDetail'):'';
+  // The update button only shows when Steam has a newer build, or when it could not be asked.
+  $('#update-box').hidden=!update||u.available===false;
+  $('#update-refresh').disabled=checking||running;
 }
 
 async function loadBackups(){
@@ -81,7 +100,9 @@ function renderBackups(){
   if(list.length>PAGE)node.append(' · ',el('button',{class:'link',type:'button',text:expanded?t('showLess'):t('showMore',{n:list.length-PAGE}),onclick:()=>{expanded=!expanded;renderBackups();}}));
 }
 
-PZ.views.maintenance={title:'maintenance',renderJob,loadBackups,
+$('#update-refresh').addEventListener('click',()=>loadUpdate(true));
+
+PZ.views.maintenance={title:'maintenance',renderJob,loadBackups,loadUpdate,
   status:renderService,
-  enter(){renderJob();run(loadBackups)();}};
+  enter(){renderJob();run(loadBackups)();if(!checking)loadUpdate();}};
 })();
