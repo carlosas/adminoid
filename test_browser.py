@@ -104,6 +104,12 @@ def main():
                 mods = C.Document('server', C.read_all()['server']).fields['Mods'].value
                 assert '\\tsarslib;\\BetterCarPhysics' in mods, mods
 
+                # Settings shows the mod lines read-only, pointing to the Mods tab
+                page.locator('.sidebar').get_by_role('link', name='Configuración').click()
+                page.locator('#categories').get_by_role('button', name=re.compile('^Mods y mapas')).click()
+                row = page.locator('.row', has_text='server · WorkshopItems')
+                expect(row.locator('input, textarea')).to_be_disabled()
+                expect(row.get_by_role('link', name='Se edita en Mods')).to_be_visible()
                 # Add from the Workshop by pasting a link: required items and their Mod IDs come along, required ones first
                 page.locator('.sidebar').get_by_role('link', name='Mods').click()
                 expect(page.locator('#workshop-rows')).to_contain_text('Common Sense')

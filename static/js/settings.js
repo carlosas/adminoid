@@ -102,6 +102,9 @@ function section(c,rows,searching){
     searching&&rows.length<c.fields.length?el('div',{class:'section-foot'},t('showingOf',{n:rows.length,total:c.fields.length}),' · ',el('button',{class:'link',type:'button',text:t('viewAllIn',{category:c.name}),onclick:()=>{selected=c.id;filter='all';$('#search').value='';render();}})):null);
 }
 
+// Mods and WorkshopItems are edited from the Mods tab; here they are shown read-only.
+const managedByMods=(scope,f)=>scope==='server'&&['Mods','WorkshopItems'].includes(f.key);
+
 function row(scope,f){
   const node=el('div',{class:'row'});
   const id=`f-${scope}-${f.key}`.replace(/[^\w-]/g,'_');
@@ -113,6 +116,7 @@ function row(scope,f){
     if(changed)badges.push(el('span',{class:'badge amber',text:t('modified')}));
     if(pending(f))badges.push(el('span',{class:'pill blue',text:t('pendingRestartBadge')}));
     if(f.readonly)badges.push(el('span',{class:'pill',text:t('protected')}));
+    if(managedByMods(scope,f))badges.push(el('a',{class:'pill',href:'#mods',text:t('managedInMods')}));
     const help=el('p',{class:'row-help'},helpText(scope,f));
     if(changed){
       help.append(' ',el('br'),t('before'),': ',el('strong',{text:display(scope,f,f.value)}),' · ',el('button',{class:'link',type:'button',text:t('reset'),onclick:()=>{PZ.setEdit(scope,f.key,f.value,f.value);node.replaceWith(row(scope,f));}}));
@@ -150,7 +154,7 @@ const useSegments=f=>{const labels=Object.values(f.choices);return labels.length
 
 function control(scope,f,id,set){
   const value=PZ.effective(scope,f.key);
-  const disabled=f.readonly;
+  const disabled=f.readonly||managedByMods(scope,f);
   const choices=Object.entries(f.choices);
   if(choices.length){
     if(useSegments(f)){
