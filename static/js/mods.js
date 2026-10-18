@@ -184,9 +184,11 @@ async function addByWorkshop(){
     chosen={items:[],mods:[]};
     const main=list.find(x=>x.id===id)||{id,modIds:[],requires:[],found:false};
     // The lookup lists required items first; that order is kept when adding.
+    // Each item shows what gets downloaded (Workshop ID) and, below, the Mod IDs it can activate.
     const block=item=>{
       const required=item.id!==id;const order=list.indexOf(item);
-      const box=el('input',{type:'checkbox',checked:true,disabled:!required});
+      // The item being added is always downloaded; required items can be left out.
+      const box=required?el('input',{type:'checkbox',checked:true}):{checked:true};
       const modBoxes=item.modIds.map(mod=>{
         const active=ids.includes(mod);
         const b=el('input',{type:'checkbox',checked:!active,disabled:active});
@@ -195,14 +197,15 @@ async function addByWorkshop(){
       });
       chosen.items.push({id:item.id,box,order});
       const name=item.title||t('untitled',{id:item.id});
+      const title=[el('strong',{text:name}),el('span',{class:'small muted'},' · Workshop ID ',el('span',{class:'mono',text:item.id}),
+        items.includes(item.id)?' · '+t('alreadyInWorkshop'):'')];
       return el('div',{class:'ws-item'},
-        el('label',{class:'check ws-title'},box,el('span',{},el('strong',{text:name}),' ',el('span',{class:'mono small muted',text:item.id}),
-          items.includes(item.id)?el('span',{class:'small muted',text:' · '+t('alreadyInWorkshop')}):null)),
-        modBoxes.length?el('div',{class:'ws-mods'},modBoxes):el('p',{class:'small warn-text',text:item.found?t('noModIdsFound'):t('lookupFailed')}));
+        required?el('label',{class:'check ws-title'},box,el('span',{},title)):el('div',{class:'ws-title'},title),
+        modBoxes.length?el('div',{class:'ws-mods'},el('span',{class:'small muted',text:t('activateModIds')}),modBoxes)
+          :el('p',{class:'small warn-text',text:item.found?t('noModIdsFound'):t('lookupFailed')}));
     };
     const deps=list.filter(x=>x.id!==id);
-    preview.replaceChildren(
-      el('p',{class:'small muted',text:t('activateThese')}),block(main),
+    preview.replaceChildren(block(main),
       ...(deps.length?[el('p',{class:'small muted',text:t('alsoRequires')}),...deps.map(block)]:[]),
       el('a',{class:'small',href:steamUrl(id),target:'_blank',rel:'noopener noreferrer',text:t('openInSteam')}));
   }
