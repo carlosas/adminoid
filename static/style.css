@@ -280,7 +280,9 @@ main{flex:1;min-width:0;padding:28px 40px 48px;display:flex;flex-direction:colum
 .steps li.failed .bar{background:var(--coral)}
 .steps li.failed .label{color:var(--coral)}
 .steps li.failed .marker{border-color:var(--coral);background:var(--coral)}
+.steps li.skipped .bar{background:var(--info)}
 .steps li.skipped .label{text-decoration:line-through}
+.steps li.skipped .marker{border-color:var(--info)}
 @keyframes spin{to{transform:rotate(360deg)}}
 .op-detail{font:13px var(--mono);color:var(--soft);background:var(--sunk);border-radius:8px;padding:10px 14px;overflow-wrap:anywhere}
 .version-line{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
