@@ -162,6 +162,10 @@ SIBLINGS = {
     'UltraSpeedDoesnotAffectToAnimals': 'FastForwardMultiplier',
     'CarEngineAttractionModifier': 'SpeedLimit', 'DisableVehicleTowing': 'SpeedLimit',
     'DisableTrailerTowing': 'SpeedLimit', 'DisableBurntTowing': 'SpeedLimit',
+    # Sandbox
+    'NightLength': 'DayLength', 'AlarmDecayModifier': 'AlarmDecay', 'AnimalMetaStatsModifier': 'AnimalStatsModifier',
+    'InsaneLootFactor': 'HoursForLootRespawn', 'ExtremeLootFactor': 'HoursForLootRespawn', 'RareLootFactor': 'HoursForLootRespawn',
+    'NormalLootFactor': 'HoursForLootRespawn', 'CommonLootFactor': 'HoursForLootRespawn', 'AbundantLootFactor': 'HoursForLootRespawn',
 }
 
 def metadata(scope, field, tr, cats):

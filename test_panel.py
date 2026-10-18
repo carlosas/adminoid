@@ -67,6 +67,9 @@ class ParserTests(TemporaryServer):
         for key,category in (('PVPLogToolFile','PVP'),('SafetyDisconnectDelay','PVP'),('BadWordPolicy','Chat'),
                              ('DisableVehicleTowing','Vehicles'),('SpawnPoint','Mods and maps'),('AntiCheatSpeed','Advanced')):
             self.assertEqual(meta(key),category,key)
+        cats={('sandbox','HoursForLootRespawn'):'Loot',('sandbox','AlarmDecay'):'World'}
+        for key,category in (('RareLootFactor','Loot'),('AlarmDecayModifier','World'),('Farming','Advanced')):
+            self.assertEqual(C.metadata('sandbox',N(key=key,help='',value=1,kind='integer'),{},cats)['category'],category,key)
     def test_ini_lossless_and_secret(self):
         text=C.Document('server',INI).edit({'Password':'a&b|$x"','PVP':True})
         self.assertEqual(text,INI.replace('old-secret','a&b|$x"').replace('PVP=false','PVP=true'))
