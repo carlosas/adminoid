@@ -10,7 +10,10 @@ const isList=(scope,f)=>scope==='server'&&LISTS.includes(f.key);
 const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
 const edited=(scope,f)=>Object.hasOwn(PZ.state.edits[scope]||{},f.key);
 const pending=f=>f.applied_known&&!f.secret&&!same(f.applied,f.value);
-const groupOf=(scope,f)=>f.mod?'mods':scope==='regions'||scope==='points'||/^(Advanced|Avanzado)\b/.test(f.category)?'other':scope;
+const groupOf=(scope,f)=>f.mod?'mods':scope;
+const isAdvanced=c=>/^(Advanced|Avanzado)$/.test(c.name);
+// The server section holding the Map line also shows the spawn editor.
+const hasSpawn=c=>c.fields.some(([s,f])=>s==='server'&&f.key==='Map');
 
 function display(scope,f,v){
   if(f.secret)return v?t('newPassword'):t('hiddenValue');
@@ -26,16 +29,18 @@ function buildCategories(){
   const map=new Map();
   for(const [scope,doc] of Object.entries(PZ.state.config)){
     for(const f of doc.fields){
-      const id=scope==='regions'||scope==='points'?'spawn':f.mod?'mod:'+f.mod:f.category;
-      if(!map.has(id))map.set(id,{id,name:id==='spawn'?t('spawnCategory'):f.category,group:groupOf(scope,f),fields:[]});
+      // Spawn regions and points are edited as a whole, inside the Mods and maps section.
+      if(scope==='regions'||scope==='points')continue;
+      const id=f.mod?'mod:'+f.mod:scope==='sandbox'?'sandbox:'+f.category:f.category;
+      if(!map.has(id))map.set(id,{id,name:f.category,group:groupOf(scope,f),fields:[]});
       map.get(id).fields.push([scope,f]);
     }
   }
   // Every installed mod gets a section, also the ones without options.
   for(const mod of PZ.state.config.sandbox?.mods||[])
     if(!map.has('mod:'+mod.id))map.set('mod:'+mod.id,{id:'mod:'+mod.id,name:mod.name,group:'mods',fields:[]});
-  const order={server:0,sandbox:1,other:2,mods:3};
-  categories=[...map.values()].sort((a,b)=>order[a.group]-order[b.group]||(a.id==='spawn')-(b.id==='spawn')||a.name.localeCompare(b.name));
+  const order={server:0,sandbox:1,mods:2};
+  categories=[...map.values()].sort((a,b)=>order[a.group]-order[b.group]||isAdvanced(a)-isAdvanced(b)||a.name.localeCompare(b.name));
 }
 
 function matches([scope,f]){
@@ -56,8 +61,8 @@ function renderCategories(visible){
   const nav=$('#categories');let group=null;const nodes=[];
   for(const c of visible){
     if(c.group!==group){group=c.group;nodes.push(el('div',{class:'cat-group',text:t('group_'+group)}));}
-    const changed=c.fields.some(([s,f])=>edited(s,f))||(c.id==='spawn'&&Object.keys(PZ.state.structures).length);
-    const shown=c.id==='spawn'?'':c.fields.filter(matches).length;
+    const changed=c.fields.some(([s,f])=>edited(s,f))||(hasSpawn(c)&&Object.keys(PZ.state.structures).length);
+    const shown=c.fields.filter(matches).length;
     nodes.push(el('button',{type:'button',class:'cat-link','aria-current':String(c.id===selected),onclick:()=>{selected=c.id;filter='all';$('#search').value='';render();$('#fields').scrollIntoView({block:'start'});}},
       el('span',{text:c.name}),el('span',{class:'count'},changed?el('span',{class:'dot warn'}):null,String(shown))));
   }
@@ -65,7 +70,7 @@ function renderCategories(visible){
 }
 
 function visibleCategories(){
-  const v=categories.filter(c=>c.id==='spawn'||c.group==='mods'&&!c.fields.length?filter==='all':c.fields.length>0);
+  const v=categories.filter(c=>c.group==='mods'&&!c.fields.length?filter==='all':c.fields.length>0);
   if(!v.some(c=>c.id===selected))selected=v[0]?.id;
   return v;
 }
@@ -83,14 +88,14 @@ function render(){
   const sections=[];
   if(searching){
     for(const c of categories){
-      if(c.id==='spawn')continue;
       const rows=c.fields.filter(matches);
       if(rows.length)sections.push(section(c,rows,true));
     }
     if(!sections.length)sections.push(el('div',{class:'card empty',text:filter==='modified'?t('noUnsaved'):filter==='pending'?t('noPendingRestart'):t('noResults')}));
   }else{
     const c=categories.find(x=>x.id===selected);
-    if(c)sections.push(c.id==='spawn'?spawnSection(c):c.group==='mods'&&!c.fields.length?emptyModSection(c):section(c,c.fields.filter(matches),false));
+    if(c)sections.push(c.group==='mods'&&!c.fields.length?emptyModSection(c):section(c,c.fields.filter(matches),false));
+    if(c&&hasSpawn(c))sections.push(spawnSection({name:t('spawnCategory')}));
   }
   $('#fields').replaceChildren(...sections);
   const total=categories.reduce((a,c)=>a+c.fields.length,0);

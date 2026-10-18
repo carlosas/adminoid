@@ -113,6 +113,11 @@ def main():
                 # Mod options: one section per installed mod, edited like any other setting
                 cats = page.locator('#categories')
                 expect(cats).to_contain_text('Mods')
+                # Spawn regions and points are edited inside Mods y mapas; there is no Otros group any more
+                expect(cats).not_to_contain_text('Otros')
+                cats.get_by_role('button', name=re.compile('^Mods y mapas')).click()
+                expect(page.locator('#fields')).to_contain_text('Aparición')
+                expect(page.locator('#fields').get_by_role('button', name='Añadir región')).to_be_visible()
                 cats.get_by_role('button', name=re.compile('^Common Sense')).click()
                 expect(page.locator('#fields')).to_contain_text('Este mod no tiene opciones disponibles.')
                 cats.get_by_role('button', name=re.compile("^Brita's Weapon Pack")).click()
