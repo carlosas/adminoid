@@ -23,10 +23,6 @@ function status(){
   const b=s.last_backup;
   $('#tile-backup').textContent=b?ago(b.mtime):t('none');
   $('#tile-backup-foot').replaceChildren(...(b?[icon('check'),t('verifiedSize',{size:bytes(b.size).join(' ')})]:[t('noBackupsYet')]));
-  const power=$('#overview-power');
-  const running=s.state==='active'||s.state==='activating';
-  power.dataset.op=running?'restart':'start';
-  power.replaceChildren(icon(running?'restart':'play'),el('span',{text:running?t('restartEllipsis'):t('start')}));
   renderPending();renderPlayers();
 }
 
