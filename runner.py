@@ -10,8 +10,28 @@ import threading
 import time
 
 import settings as S
-from common import initialize, write_json
+from common import initialize, write_json, record
 from configuration import read_all, digest
+
+COMMANDS = ('players', 'save', 'quit', 'message', 'kick')
+# Usernames as the game accepts them; quotes and control characters would break the console line.
+USERNAME = re.compile(r'[^"\\\x00-\x1f]{1,64}')
+
+def clean_text(value, limit):
+    if not isinstance(value, str): raise ValueError('Invalid text.')
+    value = ' '.join(value.replace('"', "'").replace('\\', '/').split())
+    if not value or len(value) > limit: raise ValueError('Invalid text.')
+    return value
+
+def console_line(command, args):
+    """Build the console line for an allowed command; arguments never reach the console unquoted."""
+    if command == 'message': return 'servermsg "%s"' % clean_text(args.get('text'), 200)
+    if command == 'kick':
+        user = args.get('user')
+        if not isinstance(user, str) or not USERNAME.fullmatch(user): raise ValueError('Invalid player name.')
+        reason = args.get('reason')
+        return 'kickuser "%s"' % user + (' -r "%s"' % clean_text(reason, 120) if reason else '')
+    return command
 
 def main():
     initialize()
@@ -35,6 +55,18 @@ def main():
                             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                             text=True, bufsize=1, start_new_session=True)
     start_configs = read_all()
+    launched = time.monotonic()
+    sessions = {}
+    write_json(S.STATE / 'sessions.json', sessions)
+
+    def track(line):
+        # Join times shown in the panel; best effort, the 'players' command stays authoritative.
+        user = re.search(r'username="([^"]{1,64})"', line)
+        if not user: return
+        if 'fully-connected' in line: sessions[user[1]] = time.time()
+        elif re.search(r'disconnect', line, re.I): sessions.pop(user[1], None)
+        else: return
+        write_json(S.STATE / 'sessions.json', sessions)
 
     def output():
         for line in proc.stdout:
@@ -45,19 +77,24 @@ def main():
                 write_json(S.STATE / 'applied.json', {k: digest(v) for k,v in start_configs.items()})
                 write_json(S.STATE / 'applied-values.json', start_configs)
                 ready.set()
+                record('started', 'info', seconds=round(time.monotonic() - launched))
             if 'Shutdown handling finished' in line: clean.set()
+            try: track(line)
+            except (OSError, ValueError): pass
         ready.clear()
 
     threading.Thread(target=output, daemon=True).start()
 
-    def send(command):
-        if command not in ('players', 'save', 'quit'): raise ValueError('Command not allowed.')
+    def send(command, args=None):
+        args = args or {}
+        if command not in COMMANDS: raise ValueError('Command not allowed.')
         if not ready.is_set(): raise ValueError('The server has not finished starting.')
+        line = console_line(command, args)
         with serial:
             start = time.monotonic()
             if command == 'quit': requested.set()
-            proc.stdin.write(command + '\n'); proc.stdin.flush()
-            if command == 'quit': return {'sent': True}
+            proc.stdin.write(line + '\n'); proc.stdin.flush()
+            if command in ('quit', 'message', 'kick'): return {'sent': True}
             deadline = start + (30 if command == 'players' else 90)
             while time.monotonic() < deadline:
                 with cv:
@@ -80,7 +117,7 @@ def main():
             self.request.settimeout(100)
             try:
                 msg = json.loads(self.rfile.readline(4096))
-                result = send(msg.get('command'))
+                result = send(msg.get('command'), msg.get('args'))
             except Exception as e: result = {'error': str(e)}
             self.wfile.write((json.dumps(result) + '\n').encode())
 
@@ -105,7 +142,10 @@ def main():
     result = proc.wait()
     # Let the reader drain the final shutdown messages.
     clean.wait(2)
-    write_json(S.STATE/'game-exit.json',{'graceful':clean.is_set() and requested.is_set() and result==0,'time':time.time()})
+    graceful = clean.is_set() and requested.is_set() and result==0
+    write_json(S.STATE/'game-exit.json',{'graceful':graceful,'time':time.time()})
+    write_json(S.STATE/'sessions.json',{})
+    if not graceful: record('crashed', 'error', code=result)
     server.shutdown(); server.server_close()
     S.SOCKET.unlink(missing_ok=True)
     raise SystemExit(0 if clean.is_set() and requested.is_set() and result==0 else 1)

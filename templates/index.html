@@ -1,27 +1,237 @@
 <!doctype html>
 <html lang="{{ lang }}">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="csrf" content="{{ csrf }}"><title>{{ name }}</title><link rel="stylesheet" href="/static/style.css"><link rel="stylesheet" href="/static/language.css"><script src="/static/i18n.js" defer></script><script src="/static/app.js" defer></script></head>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="csrf" content="{{ csrf }}">
+<meta name="server-name" content="{{ name }}">
+<title>{{ name }} · Adminoid</title>
+<link rel="stylesheet" href="/static/style.css">
+<script src="/static/i18n.js" defer></script>
+<script src="/static/js/core.js" defer></script>
+<script src="/static/js/overview.js" defer></script>
+<script src="/static/js/settings.js" defer></script>
+<script src="/static/js/maintenance.js" defer></script>
+<script src="/static/js/mods.js" defer></script>
+<script src="/static/js/logs.js" defer></script>
+<script src="/static/js/main.js" defer></script>
+</head>
 <body>
-<header><div><span class="eyebrow">PROJECT ZOMBOID · BUILD 42</span><h1>{{ name }}</h1></div><div class="header-actions"><nav class="language-nav" aria-label="Idioma / Language"><a href="?lang=es" class="flag{% if lang == 'es' %} active{% endif %}" title="Español" aria-label="Ver en español">🇪🇸</a><a href="?lang=en" class="flag{% if lang == 'en' %} active{% endif %}" title="English" aria-label="View in English">🇬🇧</a></nav><button id="logout" data-i18n="logout" hidden>Log out</button></div></header>
-<main>
-<section id="login-panel" class="card login"><h2 data-i18n="serverAdmin">Server administration</h2>
-{% if setup %}<p data-i18n="createAccountFirst">Create the account from SSH first:</p><pre>cd {{ base }}
+<svg class="sprite" aria-hidden="true">
+<symbol id="i-overview" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></symbol>
+<symbol id="i-settings" viewBox="0 0 24 24"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></symbol>
+<symbol id="i-maintenance" viewBox="0 0 24 24"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z"/></symbol>
+<symbol id="i-mods" viewBox="0 0 24 24"><path d="M10 3h4v3a2 2 0 1 0 4 0V3h3v7h-3a2 2 0 1 0 0 4h3v7h-7v-3a2 2 0 1 0-4 0v3H3v-7h3a2 2 0 1 0 0-4H3V3z"/></symbol>
+<symbol id="i-logs" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9l3 3-3 3M13 15h4"/></symbol>
+<symbol id="i-logout" viewBox="0 0 24 24"><path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h11"/></symbol>
+<symbol id="i-backup" viewBox="0 0 24 24"><path d="M4 7h16v13H4zM9 11h6M3 4h18v3H3z"/></symbol>
+<symbol id="i-restart" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.7M20 4v5h-5"/></symbol>
+<symbol id="i-play" viewBox="0 0 24 24"><path d="M7 5l12 7-12 7z"/></symbol>
+<symbol id="i-stop" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1.5"/></symbol>
+<symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></symbol>
+<symbol id="i-warning" viewBox="0 0 24 24"><path d="M12 3l10 18H2L12 3zM12 10v5M12 18v.5"/></symbol>
+<symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></symbol>
+<symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></symbol>
+<symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+<symbol id="i-pause" viewBox="0 0 24 24"><path d="M8 5v14M16 5v14"/></symbol>
+<symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+<symbol id="i-grip" viewBox="0 0 24 24"><path d="M9 6h.01M15 6h.01M9 12h.01M15 12h.01M9 18h.01M15 18h.01"/></symbol>
+<symbol id="i-up" viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></symbol>
+<symbol id="i-down" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
+<symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></symbol>
+<symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+</svg>
+
+<section id="login-panel" class="login-screen">
+<div class="login-card">
+<div class="brand"><span class="eyebrow">PROJECT ZOMBOID · BUILD 42</span><span class="brand-name">ADMINOID</span></div>
+<h1 data-i18n="serverAdmin">Server administration</h1>
+<p class="muted">{{ name }}</p>
+{% if setup %}<p data-i18n="createAccountFirst">Create the account from SSH first:</p><pre class="code">cd {{ base }}
 .venv/bin/python app.py create-admin</pre>{% endif %}
-<form id="login"><label><span data-i18n="username">Username</span><input name="username" autocomplete="username" required></label><label><span data-i18n="password">Password</span><input name="password" type="password" autocomplete="current-password" required></label><button class="primary" data-i18n="login">Log in</button></form><p class="muted" data-i18n="lanHttp">HTTP access on your local network.</p></section>
-<div id="application" hidden>
-<section class="status card"><div id="status" data-i18n="checkingServer">Checking server…</div><button id="refresh" data-i18n="refreshStatus">Refresh status</button></section>
-<nav><button data-tab="configuration" class="active" data-i18n="configuration">Configuration</button><button data-tab="maintenance" data-i18n="maintenance">Maintenance</button><button data-tab="mods" data-i18n="installedMods">Installed mods</button><button data-tab="logs" data-i18n="logs">Logs</button></nav>
-<section id="configuration" class="tab">
-<div class="toolbar"><input id="search" type="search" data-i18n-placeholder="searchPlaceholder" placeholder="Search: fuel, reading, zombies, or technical key…"><select id="category" data-i18n-aria="category" aria-label="Category"><option value="" data-i18n="allCategories">All categories</option></select><button id="review" class="primary" data-i18n="reviewSave">Review and save</button><button id="discard" data-i18n="discardChanges">Discard changes</button></div>
-<p id="edit-count" class="muted"></p><p class="notice" data-i18n="saveNotice">Saving does not restart the server. Some settings affect only newly generated areas, vehicles, or objects. Map and mod changes may require a new world.</p>
-<details><summary data-i18n="editSpawns">Edit spawn regions and points</summary><p data-i18n="spawnWarning">Structural changes regenerate this file; the prior backup preserves the original and its comments.</p><div id="spawn-editors"></div></details>
-<div id="fields"></div>
-</section>
-<section id="maintenance" class="tab" hidden><div class="card"><h2 data-i18n="service">Service</h2><p id="players" data-i18n="playersUnchecked">Players: not checked.</p><button id="get-players" data-i18n="checkPlayers">Check players</button><div class="actions"><button data-action="start" data-i18n="start">Start</button><button data-action="stop" data-i18n="stop">Stop</button><button data-action="restart" data-i18n="restart">Restart</button><button data-action="update" data-i18n="updateBuild">Update Build 42</button><button data-action="backup" data-i18n="backupNow">Back up now</button></div><p data-i18n="maintenanceWarning">Tasks that stop the server require confirmation and save the world before exiting.</p><div id="operation" role="status"></div></div><div class="card"><h2 data-i18n="backups">Backups</h2><p data-i18n="backupPolicy">Automatic from 04:00 UTC, retrying every 15 minutes while players are connected. Seven automatic backups are retained; manual and rescue backups are kept separately.</p><button id="refresh-backups" data-i18n="refreshList">Refresh list</button><div id="backups"></div></div></section>
-<section id="mods" class="tab" hidden><div class="card"><h2 data-i18n="installedMods">Installed mods</h2><p data-i18n="modsHelp">Under Configuration → Mods and maps, enter one ID per line. Line order is the saved order. WorkshopItems uses numeric IDs; Mods uses internal mod identifiers.</p><p data-i18n="modsWarning">This panel displays local metadata. It does not download mods or resolve dependencies itself; the server processes Workshop items during startup.</p><button id="refresh-mods" data-i18n="refresh">Refresh</button><div id="mod-list"></div></div></section>
-<section id="logs" class="tab" hidden><button id="refresh-logs" data-i18n="refreshLogs">Refresh logs</button><pre id="log-text"></pre></section>
+<form id="login">
+<label class="stack"><span data-i18n="username">Username</span><input name="username" autocomplete="username" required></label>
+<label class="stack"><span data-i18n="password">Password</span><input name="password" type="password" autocomplete="current-password" required></label>
+<button class="btn primary wide" data-i18n="login">Log in</button>
+</form>
+<div class="login-foot"><span class="muted small" data-i18n="lanHttp">HTTP access on your local network.</span>
+<div class="segmented lang-switch" role="group" aria-label="Idioma / Language"><a href="?lang=es" data-lang="es" lang="es"{% if lang == 'es' %} aria-current="true"{% endif %}>ES</a><a href="?lang=en" data-lang="en" lang="en"{% if lang == 'en' %} aria-current="true"{% endif %}>EN</a></div></div>
 </div>
-<div id="message" role="alert" hidden></div>
-<dialog id="preview"><h2 data-i18n="reviewChanges">Review changes</h2><p data-i18n="previewNotice">A copy of the original files will be saved. The game server will not restart.</p><pre id="diff"></pre><div class="actions"><button id="commit" class="primary" data-i18n="confirmSave">Confirm save</button><button id="cancel-preview" data-i18n="keepEditing">Keep editing</button></div></dialog>
-</main><footer data-i18n="footer">One instance · Configuration preserved · Verified backups</footer>
-</body></html>
+</section>
+
+<div id="application" class="shell" hidden>
+<aside class="sidebar">
+<div class="brand"><span class="eyebrow">PROJECT ZOMBOID · BUILD 42</span><span class="brand-name">ADMINOID</span></div>
+<div class="server-card" data-tone="unknown"><span class="dot"></span><div><strong>{{ name }}</strong><span class="server-summary" data-i18n="checkingServer">Checking server…</span></div></div>
+<nav class="side-nav" data-i18n-aria="sections" aria-label="Sections">
+<a class="nav" href="#overview" data-view="overview"><svg><use href="#i-overview"/></svg><span data-i18n="overview">Overview</span></a>
+<a class="nav" href="#settings" data-view="settings"><svg><use href="#i-settings"/></svg><span data-i18n="configuration">Settings</span><span class="badge amber" data-badge="settings" hidden></span></a>
+<a class="nav" href="#maintenance" data-view="maintenance"><svg><use href="#i-maintenance"/></svg><span data-i18n="maintenance">Maintenance</span><span class="badge amber" data-badge="maintenance" hidden></span></a>
+<a class="nav" href="#mods" data-view="mods"><svg><use href="#i-mods"/></svg><span data-i18n="mods">Mods</span><span class="badge coral" data-badge="mods" hidden></span></a>
+<a class="nav" href="#logs" data-view="logs"><svg><use href="#i-logs"/></svg><span data-i18n="logs">Logs</span></a>
+</nav>
+<div class="side-foot">
+<div class="segmented lang-switch" role="group" aria-label="Idioma / Language"><a href="?lang=es" data-lang="es" lang="es"{% if lang == 'es' %} aria-current="true"{% endif %}>ES</a><a href="?lang=en" data-lang="en" lang="en"{% if lang == 'en' %} aria-current="true"{% endif %}>EN</a></div>
+<button class="btn ghost" data-action="logout"><svg><use href="#i-logout"/></svg><span data-i18n="logout">Log out</span></button>
+</div>
+</aside>
+
+<header class="mobile-header">
+<div><strong>{{ name }}</strong><span class="server-summary-mobile"><span class="dot"></span><span class="server-summary" data-i18n="checkingServer">Checking server…</span></span></div>
+<button class="icon-btn" id="menu-button" data-i18n-aria="menu" aria-label="Menu"><svg><use href="#i-menu"/></svg></button>
+</header>
+
+<main id="content">
+
+<section id="view-overview" class="view" data-i18n-aria="overview" aria-label="Overview">
+<div class="page-head">
+<div><h1 data-i18n="overview">Overview</h1><div class="sub"><span class="dot ok live"></span><span id="overview-updated"></span></div></div>
+<div class="actions"><button class="btn" data-op="backup"><svg><use href="#i-backup"/></svg><span data-i18n="createBackup">Back up</span></button><button class="btn" id="overview-power" data-op="restart"><svg><use href="#i-restart"/></svg><span data-i18n="restartEllipsis">Restart…</span></button></div>
+</div>
+<div id="job-banner" class="banner info" role="status" hidden></div>
+<div id="pending-banner" class="banner amber" role="status" hidden>
+<svg class="banner-icon"><use href="#i-warning"/></svg>
+<div class="grow"><div class="banner-title" data-i18n="pendingTitle">Saved changes are not applied yet</div><div class="banner-text" id="pending-text"></div></div>
+<a href="#settings/pending" data-i18n="viewChanges">View changes</a>
+<button class="btn amber-fill" data-op="restart" data-i18n="restartNow">Restart now</button>
+</div>
+<div class="tiles">
+<div class="tile"><div class="tile-label" data-i18n="server">Server</div><div class="tile-value" id="tile-state"><span class="dot"></span><span>—</span></div><div class="tile-foot" id="tile-uptime"></div></div>
+<div class="tile"><div class="tile-label" data-i18n="players">Players</div><div class="tile-value" id="tile-players">—</div><div class="meter"><span id="tile-players-bar"></span></div></div>
+<div class="tile"><div class="tile-label" data-i18n="memory">Memory</div><div class="tile-value" id="tile-memory">—</div><svg id="memory-chart" class="spark" viewBox="0 0 200 28" preserveAspectRatio="none" role="img"><polyline points=""/></svg></div>
+<div class="tile"><div class="tile-label" data-i18n="lastBackup">Last backup</div><div class="tile-value" id="tile-backup">—</div><div class="tile-foot" id="tile-backup-foot"></div></div>
+</div>
+<div class="columns">
+<section class="card">
+<div class="card-head"><h2 data-i18n="connectedPlayers">Connected players</h2><button class="btn small" id="message-all" data-i18n="messageAll">Message everyone</button></div>
+<div id="player-list" class="list"></div>
+</section>
+<section class="card">
+<div class="card-head"><h2 data-i18n="recentActivity">Recent activity</h2></div>
+<ol id="activity-list" class="activity"></ol>
+</section>
+</div>
+<section class="card">
+<div class="card-head"><h2 data-i18n="liveLog">Live log</h2><a href="#logs" data-i18n="openLogs">Open logs</a></div>
+<div id="overview-log" class="log-snippet mono"></div>
+</section>
+</section>
+
+<section id="view-settings" class="view" hidden>
+<div class="page-head"><div><h1 data-i18n="configuration">Settings</h1><div class="sub" id="settings-summary"></div></div></div>
+<div class="toolbar">
+<label class="search"><svg><use href="#i-search"/></svg><span class="sr-only" data-i18n="searchSetting">Search setting</span><input id="search" type="search" autocomplete="off" data-i18n-placeholder="searchPlaceholder" placeholder="Search…"><kbd>/</kbd></label>
+<div class="segmented" role="group" id="settings-filter" data-i18n-aria="filter" aria-label="Filter"></div>
+</div>
+<div id="settings-errors"></div>
+<div class="settings-layout">
+<nav id="categories" class="categories" data-i18n-aria="categories" aria-label="Categories"></nav>
+<div id="fields" class="settings-main"></div>
+<aside class="review" data-i18n-aria="reviewChanges" aria-label="Review changes">
+<div class="review-head"><h2 data-i18n="unsavedChanges">Unsaved changes</h2><span class="review-count" id="review-count">0</span></div>
+<div id="review-list" class="review-list"></div>
+<p class="small muted" data-i18n="saveNotice">A copy of the original files is kept. Changes apply on the next restart.</p>
+<button class="btn primary wide" id="save-changes" disabled></button>
+<button class="btn ghost wide" id="discard-changes" data-i18n="discard" disabled>Discard</button>
+</aside>
+</div>
+</section>
+
+<section id="view-maintenance" class="view" hidden>
+<div class="page-head"><div><h1 data-i18n="maintenance">Maintenance</h1></div></div>
+<section id="operation-card" class="card operation" aria-live="polite" hidden></section>
+<div class="columns">
+<section class="card stack-gap">
+<h2 data-i18n="service">Service</h2>
+<p class="muted" data-i18n="serviceHelp">Tasks that stop the server show who is connected, warn them in game, save the world and wait for it to finish before continuing.</p>
+<div class="actions">
+<button class="btn" data-op="start"><svg><use href="#i-play"/></svg><span data-i18n="start">Start</span></button>
+<button class="btn" data-op="restart"><svg><use href="#i-restart"/></svg><span data-i18n="restartEllipsis">Restart…</span></button>
+<button class="btn danger-text" data-op="stop"><svg><use href="#i-stop"/></svg><span data-i18n="stopEllipsis">Stop…</span></button>
+</div>
+<p class="small muted" id="service-note"></p>
+</section>
+<section class="card stack-gap">
+<h2 data-i18n="gameVersion">Game version</h2>
+<div class="version-line"><span class="display" id="version-build">Build 42</span><span class="mono small muted" id="version-full"></span></div>
+<p class="muted" data-i18n="updateHelp">Updating downloads the Build 42 branch with SteamCMD. A rescue backup is made first and, if the version is not Build 42, the server stays stopped.</p>
+<div><button class="btn" data-op="update"><svg><use href="#i-download"/></svg><span data-i18n="updateBuild">Update Build 42…</span></button></div>
+</section>
+</div>
+<section class="card flush">
+<div class="card-head padded">
+<div><h2 data-i18n="backups">Backups</h2><div class="small muted" data-i18n="backupPolicy">Daily from 04:00 UTC…</div></div>
+<div class="actions"><div class="segmented" role="group" id="backup-filter" data-i18n-aria="filterBackups" aria-label="Filter backups"></div><button class="btn primary" data-op="backup" data-i18n="backupNow">Back up now</button></div>
+</div>
+<div class="table-wrap"><table class="table">
+<thead><tr><th data-i18n="date">Date</th><th data-i18n="type">Type</th><th data-i18n="size">Size</th><th data-i18n="state">Status</th><th data-i18n="file">File</th><th><span class="sr-only" data-i18n="actions">Actions</span></th></tr></thead>
+<tbody id="backup-rows"></tbody>
+</table></div>
+<div class="card-foot small muted" id="backup-foot"></div>
+</section>
+</section>
+
+<section id="view-mods" class="view" hidden>
+<div class="page-head"><div><h1 data-i18n="mods">Mods</h1><div class="sub" id="mods-summary"></div></div><button class="btn primary" id="add-workshop"><svg><use href="#i-plus"/></svg><span data-i18n="addWorkshop">Add by Workshop ID</span></button></div>
+<div id="mod-issues" class="stack-gap"></div>
+<div id="mods-pending" class="banner amber" hidden></div>
+<div class="mods-layout">
+<section class="card flush grow-main">
+<div class="toolbar padded">
+<label class="search small"><svg><use href="#i-search"/></svg><span class="sr-only" data-i18n="searchMod">Search mod</span><input id="mod-search" type="search" autocomplete="off" data-i18n-placeholder="searchModPlaceholder" placeholder="Search…"></label>
+<div class="segmented" role="group" id="mod-filter" data-i18n-aria="filterMods" aria-label="Filter mods"></div>
+</div>
+<div class="table-wrap"><table class="table top">
+<thead><tr><th data-i18n="mod">Mod</th><th>Workshop</th><th data-i18n="gameVersionShort">Game version</th><th data-i18n="requires">Requires</th><th data-i18n="state">Status</th></tr></thead>
+<tbody id="mod-rows"></tbody>
+</table></div>
+</section>
+<aside class="card load-order" data-i18n-aria="loadOrder" aria-label="Load order">
+<h2 data-i18n="loadOrder">Load order</h2>
+<p class="small muted" id="load-order-help"></p>
+<ol id="load-order" class="order-list"></ol>
+<p class="small muted" data-i18n="loadOrderReview">Changes go through the same review as the rest of the settings.</p>
+</aside>
+</div>
+</section>
+
+<section id="view-logs" class="view" hidden>
+<div class="page-head">
+<div><h1 data-i18n="logs">Logs</h1><div class="sub mono" id="log-unit"></div></div>
+<div class="actions">
+<select id="log-source" class="select" data-i18n-aria="source" aria-label="Source"><option value="game" data-i18n="sourceGame">Game server</option><option value="panel" data-i18n="sourcePanel">Panel</option><option value="backup" data-i18n="sourceBackup">Automatic backups</option></select>
+<a class="btn" id="log-download" href="/api/logs/download?source=game" download><svg><use href="#i-download"/></svg><span data-i18n="download">Download</span></a>
+</div>
+</div>
+<div class="toolbar">
+<label class="search small"><svg><use href="#i-search"/></svg><span class="sr-only" data-i18n="searchLogs">Search logs</span><input id="log-search" type="search" autocomplete="off" data-i18n-placeholder="searchLogsPlaceholder" placeholder="Search…"><span class="small muted" id="log-matches"></span></label>
+<div class="chips" role="group" id="log-levels" data-i18n-aria="level" aria-label="Level"></div>
+</div>
+<section class="log-panel" data-i18n-aria="logs" aria-label="Log">
+<div class="log-bar"><div class="live-state" id="log-live"><span class="dot ok live"></span><span data-i18n="following">Following live</span></div>
+<div class="actions"><button class="btn small" id="log-pause" aria-pressed="false"><svg><use href="#i-pause"/></svg><span data-i18n="pause">Pause</span></button><button class="btn small" id="log-wrap" aria-pressed="false" data-i18n="wrapLines">Wrap lines</button></div></div>
+<div id="log-lines" class="log-lines mono" tabindex="0"></div>
+<div class="log-foot small muted"><span><span id="log-count"></span> · <button class="link" id="log-older" data-i18n="loadOlder">Load older</button></span><span data-i18n="newLinesBelow">New lines appear at the bottom</span></div>
+</section>
+</section>
+
+</main>
+
+<nav class="tabbar" data-i18n-aria="sections" aria-label="Sections">
+<a href="#overview" data-view="overview"><svg><use href="#i-overview"/></svg><span data-i18n="overview">Overview</span></a>
+<a href="#settings" data-view="settings"><svg><use href="#i-settings"/></svg><span data-i18n="configShort">Settings</span></a>
+<a href="#maintenance" data-view="maintenance"><svg><use href="#i-maintenance"/></svg><span data-i18n="maintenanceShort">Maint.</span></a>
+<a href="#mods" data-view="mods"><svg><use href="#i-mods"/></svg><span data-i18n="mods">Mods</span></a>
+<a href="#logs" data-view="logs"><svg><use href="#i-logs"/></svg><span data-i18n="logs">Logs</span></a>
+</nav>
+</div>
+
+<dialog id="dialog" class="dialog"></dialog>
+<dialog id="menu-sheet" class="dialog sheet">
+<div class="sheet-head"><strong>{{ name }}</strong><button class="icon-btn" data-close data-i18n-aria="close" aria-label="Close"><svg><use href="#i-close"/></svg></button></div>
+<div class="segmented lang-switch" role="group" aria-label="Idioma / Language"><a href="?lang=es" data-lang="es" lang="es"{% if lang == 'es' %} aria-current="true"{% endif %}>Español</a><a href="?lang=en" data-lang="en" lang="en"{% if lang == 'en' %} aria-current="true"{% endif %}>English</a></div>
+<button class="btn wide" data-action="logout"><svg><use href="#i-logout"/></svg><span data-i18n="logout">Log out</span></button>
+</dialog>
+<div id="toast" role="status" aria-live="polite" hidden></div>
+</body>
+</html>

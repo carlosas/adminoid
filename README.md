@@ -45,16 +45,27 @@ Environment variables take precedence over `.env`. If the LAN IP changes, update
 
 ## Usage
 
-- Settings: search by key, label or description; edit and review the differences before saving. Saving does not restart the server. World identifiers are protected.
+The panel has five sections, reachable from the sidebar (bottom tabs on a phone):
+
+- **Overview**: live server state, players online against `MaxPlayers`, memory with a chart of the last hours, last backup, and a banner when saved settings are not applied yet. Connected players can be messaged (in-game server message) or kicked. Recent activity lists starts, saves, backups, operations, kicks and messages; a live tail of the game log sits below.
+- **Settings**: grouped by the game's own categories (Server, Sandbox, Other) with typed controls: option buttons or lists, switches, sliders with numeric input, steppers. Each edited setting shows its previous value and can be reset; the right-hand panel lists every unsaved change (before → after) and saves them together. Filters show only modified settings or settings pending a restart. Press `/` to search. Saving does not restart the server. World identifiers are protected.
+- **Maintenance**: start, restart, stop, Build 42 update and backups. Operations show step-by-step progress (warn players, save and stop, backup, start…) and stay locked until they finish. Confirmations are in-panel dialogs that list connected players; restoring a backup requires typing the server name.
+- **Mods**: installed mods (Workshop and local) checked against the `Mods` line: missing or misordered dependencies, mods listed but not installed, and game-version ranges. Mods can be activated, deactivated, reordered (drag or arrows) or added by Workshop ID; changes go through the same review as any other setting.
+- **Logs**: live journal of the game, the panel or the automatic backups, with level filters (errors, warnings, connections), search with highlighting, pause, older lines on demand and download.
+
+Notes:
+
 - The INI and Sandbox files are the source of truth. Unknown fields are preserved. Lua with custom code is read-only and never executed.
 - Pending changes: saved files are compared with the ones read at the last start. The comparison does not detect changes made live from the game.
-- Spawn: the forms at the top add or remove regions and points per profession. Changing the structure regenerates the file; the original is kept in config-history. Do not enable regions that point to missing maps.
-- Mods and maps: one identifier per line; line order defines the saved order. WorkshopItems holds numeric IDs; Mods holds internal IDs. They are not interchangeable. Dependencies are not resolved; check the installed metadata and the author's instructions. The server handles Workshop downloads at startup.
-- Restart, update, backup and restore show connected players and require confirmation. If the state cannot be checked, it is shown as unknown. A shutdown is never forced when the local console is missing.
+- Spawn: the Spawn category adds or removes regions and points per profession. Changing the structure regenerates the file; the original is kept in config-history. Do not enable regions that point to missing maps.
+- Mods and maps: WorkshopItems holds numeric IDs; Mods holds internal IDs. They are not interchangeable. The server handles Workshop downloads at startup.
+- Operations that stop the server warn connected players in game and wait 10 seconds first. If the player state cannot be checked, it is shown as unknown. A shutdown is never forced when the local console is missing.
+- Player messages: the game console can only broadcast, so a message "for" one player is sent to everyone, prefixed with their name.
 - Update uses SteamCMD, requires confirmed success and checks Build 42 before opening the world. The packaged version is read from Core.class; if its format changes, the update is explicitly blocked and the check must be adapted. JVM limit: 5 GiB.
 - Backups stop the game to get consistent files. The automatic backup is attempted every 15 minutes from 04:00 UTC until one succeeds that day, without interrupting players. Seven automatic backups are kept. Manual, pre-update and pre-restore backups are not rotated: keep an eye on disk space.
 - Restore validates content, space and paths and creates a rescue backup before replacing data. Do not put untrusted files in the backup directory.
 - Zombie, fuel and loot changes may only affect new content; the panel does not regenerate zones or reset the world.
+- Memory history is sampled every minute by the panel and kept for four hours; player join times come from the game log (`fully-connected` lines) and fall back to when the panel first saw the player.
 
 ## Services
 
@@ -63,7 +74,7 @@ systemctl --user status zomboid-panel.service zomboid.service zomboid-backup.tim
 journalctl --user-unit zomboid-panel.service -n 50 --no-pager
 ```
 
-The game service runs through runner.py: console over a private Unix socket, limited to players/save/quit. systemd sends SIGTERM to the wrapper, which requests quit and waits; TimeoutStopSec=360 is systemd's last resort, not a guarantee that the world is saved if the process hangs.
+The game service runs through runner.py: console over a private Unix socket, limited to `players`, `save`, `quit`, `servermsg` and `kickuser` (arguments are quoted and validated; nothing else reaches the console). The runner also records server starts, unexpected exits and player join times in `state/`. A runner started before this version only accepts players/save/quit: messages and kicks work after the next game restart. systemd sends SIGTERM to the wrapper, which requests quit and waits; TimeoutStopSec=360 is systemd's last resort, not a guarantee that the world is saved if the process hangs.
 
 The panel runs with the permissions of the user who installs it; it does not need sudo.
 
@@ -82,7 +93,9 @@ If the host loses power during a shutdown, state/shutdown-config.json keeps the 
 .venv/bin/python test_browser.py
 ```
 
-Tests use temporary directories; they never restore the real world. Browser tests require requirements-test.txt and Playwright's Chromium (plus its system libraries: `playwright install --with-deps chromium`).
+Tests use temporary directories and fake systemd, journal and console (`test_fixture.py`); they never touch the real world or services. Browser tests require requirements-test.txt and Playwright's Chromium (plus its system libraries: `playwright install --with-deps chromium`); set `PLAYWRIGHT_CHROMIUM` to use another Chromium executable.
+
+To look at the interface without a game server, run `.venv/bin/python test_fixture.py` and open http://127.0.0.1:8099 (user `preview`, password `preview-password`). It serves fake data from a temporary directory.
 
 ## Deployment recovery
 

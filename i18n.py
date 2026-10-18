@@ -91,7 +91,33 @@ MESSAGES = {
  'Structure (file will be regenerated; original comments remain in the backup)':'Estructura (se regenerará el archivo; copia previa conserva comentarios)',
  '[hidden]':'[oculto]',
  'Command not allowed.':'Comando no permitido.',
+ 'Warning connected players':'Avisando a los jugadores conectados',
+ 'Checking version':'Comprobando la versión',
+ 'Invalid text.':'Texto inválido.',
+ 'Invalid player name.':'Nombre de jugador inválido.',
+ 'That player is not connected.':'Ese jugador no está conectado.',
+ 'Message sent.':'Mensaje enviado.',
+ 'Player kicked.':'Jugador expulsado.',
+ 'Invalid log source.':'Origen de registros inválido.',
+ 'Invalid log cursor.':'Posición de registros inválida.',
 }
+
+NOTICES = {
+ 'en': {'stop':'The server will shut down for maintenance in 10 seconds. The world is being saved.',
+        'restart':'The server will restart in 10 seconds. The world is being saved; reconnect in a few minutes.',
+        'backup':'The server will restart in 10 seconds to make a backup. Reconnect in a few minutes.',
+        'restore':'The server will shut down in 10 seconds to restore a backup.',
+        'update':'The server will shut down in 10 seconds to update the game.'},
+ 'es': {'stop':'El servidor se cerrará por mantenimiento en 10 segundos. Se está guardando el mundo.',
+        'restart':'El servidor se reiniciará en 10 segundos. Se está guardando el mundo; vuelve a conectar en unos minutos.',
+        'backup':'El servidor se reiniciará en 10 segundos para hacer una copia. Vuelve a conectar en unos minutos.',
+        'restore':'El servidor se cerrará en 10 segundos para restaurar una copia.',
+        'update':'El servidor se cerrará en 10 segundos para actualizar el juego.'},
+}
+
+def notice(action, lang='en'):
+    """In-game broadcast sent before an operation stops the server, in the panel user's language."""
+    return NOTICES.get(lang, NOTICES['en']).get(action)
 
 def translate(message, lang='en'):
     if lang!='es' or not isinstance(message,str):return message
