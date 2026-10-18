@@ -44,6 +44,9 @@ class ParserTests(TemporaryServer):
         after=INI.replace('# Players','# Default: 456\n# Players')
         self.assertTrue(O.same_configuration('server',before,after))
         self.assertFalse(O.same_configuration('server',before,after.replace('PVP=false','PVP=true')))
+        # Keys the game adds after starting (new options, mod settings) are not pending changes
+        self.assertTrue(O.same_configuration('server',before,after+'\nModOption=false\n'))
+        self.assertTrue(O.same_configuration('sandbox',LUA,LUA.replace('SandboxVars = {','SandboxVars = {\n    Extra = 1,')))
 
     def test_english_catalog_fallback_categories(self):
         catalog=C.catalog('en')
