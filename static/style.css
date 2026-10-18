@@ -287,6 +287,7 @@ main{flex:1;min-width:0;padding:28px 40px 48px;display:flex;flex-direction:colum
 @keyframes spin{to{transform:rotate(360deg)}}
 .op-detail{font:13px var(--mono);color:var(--soft);background:var(--sunk);border-radius:8px;padding:10px 14px;overflow-wrap:anywhere}
 .version-line{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.update-check{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .table-wrap{overflow-x:auto;position:relative}
 .table{width:100%;border-collapse:collapse;font-size:14px}
 .table th{font-weight:500;font-size:13px;color:var(--muted);text-align:left;padding:10px 16px;border-bottom:1px solid var(--line);white-space:nowrap}

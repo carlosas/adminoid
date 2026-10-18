@@ -510,6 +510,49 @@ def workshop_info(ids, depth=3):
     for i in ids: visit(i, set())
     return {'items': [items[i] for i in order]}
 
+# Game updates: the installed build from the Steam app manifest, the latest one from the public branch on Steam.
+GAME_APP = '380870'
+game_cache, game_lock = {}, threading.Lock()
+
+def installed_build():
+    try: text = (S.GAME / 'steamapps' / f'appmanifest_{GAME_APP}.acf').read_text(errors='replace')
+    except OSError: return None
+    match = re.search(r'"buildid"\s+"(\d+)"', text)
+    return match[1] if match else None
+
+def public_branch(text):
+    """buildid and build date of the public branch in SteamCMD's app_info_print output."""
+    start = text.find('"branches"')
+    match = re.compile(r'"public"\s*\{([^{}]*)\}').search(text, start) if start >= 0 else None
+    if not match: return None
+    values = dict(re.findall(r'"(\w+)"\s+"([^"]*)"', match[1]))
+    if not values.get('buildid', '').isdigit(): return None
+    published = values.get('timebuildupdated') or values.get('timeupdated') or ''
+    return {'build': values['buildid'], 'published': int(published) if published.isdigit() else None}
+
+def game_update(refresh=False):
+    """Compare the installed build with Steam's; Steam is asked at most once an hour unless refresh is set."""
+    with game_lock:
+        latest = game_cache.get('latest')
+        stale = not latest or time.time() - latest['checked'] > 3600
+        if refresh or (stale and time.time() - game_cache.get('failed', 0) > 600):
+            try:
+                # Holding the operation lock keeps this SteamCMD run away from an update's.
+                with locked():
+                    result = command([str(S.STEAM), '+@sSteamCmdForcePlatformType', 'linux', '+login', 'anonymous',
+                                      '+app_info_update', '1', '+app_info_print', GAME_APP, '+quit'], timeout=180)
+                found = public_branch(result.stdout)
+                if not found: raise ValueError('No public branch in the SteamCMD output.')
+                latest = game_cache['latest'] = {**found, 'checked': time.time()}
+            except (ValueError, OSError, subprocess.SubprocessError):
+                game_cache['failed'] = time.time()
+                if refresh: latest = None
+    installed = installed_build()
+    available = None if not (installed and latest) else latest['build'] != installed
+    return {'installed': installed, 'latest': latest['build'] if latest else None,
+            'published': latest['published'] if latest else None, 'checked': latest['checked'] if latest else None,
+            'available': available}
+
 def daily():
     import sys
     from common import initialize

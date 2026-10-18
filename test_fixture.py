@@ -244,6 +244,31 @@ LOG = ['LOG  : General      f:0, t:{ms}> Saving world...', 'LOG  : General      
        'ERROR: Lua          f:0, t:{ms}> Exception thrown in BetterCarPhysics/client/main.lua:88',
        'LOG  : Workshop     f:0, t:{ms}> All items up to date']
 
+# SteamCMD app_info_print output for the dedicated server (shortened); {build} is the public branch build.
+STEAM_APP_INFO = '''"380870"
+{
+	"common" { "name"		"Project Zomboid Dedicated Server" }
+	"depots"
+	{
+		"380871" { "manifests" { "public" { "gid" "1" } } }
+		"branches"
+		{
+			"unstable"
+			{
+				"buildid"		"25700000"
+				"timebuildupdated"		"1790178504"
+			}
+			"public"
+			{
+				"buildid"		"{build}"
+				"timeupdated"		"1790597203"
+				"timebuildupdated"		"1790178504"
+			}
+		}
+	}
+}
+'''
+
 def build(root):
     """Create a complete fake installation under root and point settings at it."""
     S.STATE = root / 'state'; S.DATA = root / 'Zomboid'; S.BACKUPS = root / 'backups'; S.GAME = root / 'game'
@@ -252,6 +277,7 @@ def build(root):
     atomic(S.DATA / 'Server' / S.FILES['server'], INI); atomic(S.DATA / 'Server' / S.FILES['sandbox'], LUA)
     atomic(S.DATA / 'Server' / S.FILES['regions'], REGIONS)
     atomic(S.GAME / 'media/lua/client/OptionScreens/ServerSettingsScreen.lua', SCREEN)
+    atomic(S.GAME / 'steamapps/appmanifest_380870.acf', '"AppState"\n{\n\t"appid"\t\t"380870"\n\t"buildid"\t\t"25485538"\n}\n')
     for lang, files in TRANSLATIONS.items():
         for name, values in files.items(): write_json(S.GAME / 'media/lua/shared/Translate' / lang / (name + '.json'), values)
     for workshop, mods in MODS.items():
@@ -279,7 +305,7 @@ def build(root):
 @contextlib.contextmanager
 def fake_services(operation_delay=0.4):
     """Replace systemd, journald and the game console with in-memory fakes."""
-    state = {'active': True, 'players': ['Kate', 'Baldspot', 'Spiffo'], 'messages': [], 'kicked': [], 'log': []}
+    state = {'active': True, 'players': ['Kate', 'Baldspot', 'Spiffo'], 'messages': [], 'kicked': [], 'log': [], 'steam_build': '25600000'}
     started = max(1.0, time.monotonic() - 11520)
     lock = threading.Lock()
 
@@ -317,6 +343,8 @@ def fake_services(operation_delay=0.4):
                 n = int(args[args.index('-n') + 1])
                 return CompletedProcess(args, 0, '\n'.join(journal_lines(min(n, 40) if '--after-cursor' not in args else 1)), '')
             return CompletedProcess(args, 0, 'Oct 18 13:30:58 host start-server.sh[1]: World saved\n', '')
+        if '+app_info_print' in args:
+            return CompletedProcess(args, 0, STEAM_APP_INFO.replace('{build}', state['steam_build']), '')
         return CompletedProcess(args, 1, '', 'not available in tests')
 
     def execute(action, payload, progress):
