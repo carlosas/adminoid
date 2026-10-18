@@ -1,0 +1,17 @@
+[Unit]
+Description=Project Zomboid Build 42 dedicated server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/zomboid-panel
+ExecStart=%h/zomboid-panel/.venv/bin/python %h/zomboid-panel/runner.py
+Restart=on-failure
+RestartSec=15
+KillMode=mixed
+TimeoutStopSec=360
+UMask=0077
+
+[Install]
+WantedBy=default.target

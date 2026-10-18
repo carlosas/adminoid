@@ -1,0 +1,40 @@
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.language-nav {
+  display: flex;
+  gap: 6px;
+  margin: 0;
+}
+
+.flag {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 38px;
+  border: 1px solid #506064;
+  border-radius: 6px;
+  text-decoration: none;
+  font-size: 23px;
+  filter: saturate(.6);
+  opacity: .7;
+}
+
+.flag:hover,
+.flag.active {
+  border-color: var(--accent);
+  filter: none;
+  opacity: 1;
+}
+
+.flag.active {
+  box-shadow: inset 0 -2px var(--accent);
+}
+
+@media (max-width: 650px) {
+  .header-actions { gap: 8px; }
+  .flag { width: 38px; }
+}

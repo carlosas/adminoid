@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="{{ lang }}">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="csrf" content="{{ csrf }}"><title>{{ name }}</title><link rel="stylesheet" href="/static/style.css"><link rel="stylesheet" href="/static/language.css"><script src="/static/i18n.js" defer></script><script src="/static/app.js" defer></script></head>
+<body>
+<header><div><span class="eyebrow">PROJECT ZOMBOID · BUILD 42</span><h1>{{ name }}</h1></div><div class="header-actions"><nav class="language-nav" aria-label="Idioma / Language"><a href="?lang=es" class="flag{% if lang == 'es' %} active{% endif %}" title="Español" aria-label="Ver en español">🇪🇸</a><a href="?lang=en" class="flag{% if lang == 'en' %} active{% endif %}" title="English" aria-label="View in English">🇬🇧</a></nav><button id="logout" data-i18n="logout" hidden>Log out</button></div></header>
+<main>
+<section id="login-panel" class="card login"><h2 data-i18n="serverAdmin">Server administration</h2>
+{% if setup %}<p data-i18n="createAccountFirst">Create the account from SSH first:</p><pre>cd {{ base }}
+.venv/bin/python app.py create-admin</pre>{% endif %}
+<form id="login"><label><span data-i18n="username">Username</span><input name="username" autocomplete="username" required></label><label><span data-i18n="password">Password</span><input name="password" type="password" autocomplete="current-password" required></label><button class="primary" data-i18n="login">Log in</button></form><p class="muted" data-i18n="lanHttp">HTTP access on your local network.</p></section>
+<div id="application" hidden>
+<section class="status card"><div id="status" data-i18n="checkingServer">Checking server…</div><button id="refresh" data-i18n="refreshStatus">Refresh status</button></section>
+<nav><button data-tab="configuration" class="active" data-i18n="configuration">Configuration</button><button data-tab="maintenance" data-i18n="maintenance">Maintenance</button><button data-tab="mods" data-i18n="installedMods">Installed mods</button><button data-tab="logs" data-i18n="logs">Logs</button></nav>
+<section id="configuration" class="tab">
+<div class="toolbar"><input id="search" type="search" data-i18n-placeholder="searchPlaceholder" placeholder="Search: fuel, reading, zombies, or technical key…"><select id="category" data-i18n-aria="category" aria-label="Category"><option value="" data-i18n="allCategories">All categories</option></select><button id="review" class="primary" data-i18n="reviewSave">Review and save</button><button id="discard" data-i18n="discardChanges">Discard changes</button></div>
+<p id="edit-count" class="muted"></p><p class="notice" data-i18n="saveNotice">Saving does not restart the server. Some settings affect only newly generated areas, vehicles, or objects. Map and mod changes may require a new world.</p>
+<details><summary data-i18n="editSpawns">Edit spawn regions and points</summary><p data-i18n="spawnWarning">Structural changes regenerate this file; the prior backup preserves the original and its comments.</p><div id="spawn-editors"></div></details>
+<div id="fields"></div>
+</section>
+<section id="maintenance" class="tab" hidden><div class="card"><h2 data-i18n="service">Service</h2><p id="players" data-i18n="playersUnchecked">Players: not checked.</p><button id="get-players" data-i18n="checkPlayers">Check players</button><div class="actions"><button data-action="start" data-i18n="start">Start</button><button data-action="stop" data-i18n="stop">Stop</button><button data-action="restart" data-i18n="restart">Restart</button><button data-action="update" data-i18n="updateBuild">Update Build 42</button><button data-action="backup" data-i18n="backupNow">Back up now</button></div><p data-i18n="maintenanceWarning">Tasks that stop the server require confirmation and save the world before exiting.</p><div id="operation" role="status"></div></div><div class="card"><h2 data-i18n="backups">Backups</h2><p data-i18n="backupPolicy">Automatic from 04:00 UTC, retrying every 15 minutes while players are connected. Seven automatic backups are retained; manual and rescue backups are kept separately.</p><button id="refresh-backups" data-i18n="refreshList">Refresh list</button><div id="backups"></div></div></section>
+<section id="mods" class="tab" hidden><div class="card"><h2 data-i18n="installedMods">Installed mods</h2><p data-i18n="modsHelp">Under Configuration → Mods and maps, enter one ID per line. Line order is the saved order. WorkshopItems uses numeric IDs; Mods uses internal mod identifiers.</p><p data-i18n="modsWarning">This panel displays local metadata. It does not download mods or resolve dependencies itself; the server processes Workshop items during startup.</p><button id="refresh-mods" data-i18n="refresh">Refresh</button><div id="mod-list"></div></div></section>
+<section id="logs" class="tab" hidden><button id="refresh-logs" data-i18n="refreshLogs">Refresh logs</button><pre id="log-text"></pre></section>
+</div>
+<div id="message" role="alert" hidden></div>
+<dialog id="preview"><h2 data-i18n="reviewChanges">Review changes</h2><p data-i18n="previewNotice">A copy of the original files will be saved. The game server will not restart.</p><pre id="diff"></pre><div class="actions"><button id="commit" class="primary" data-i18n="confirmSave">Confirm save</button><button id="cancel-preview" data-i18n="keepEditing">Keep editing</button></div></dialog>
+</main><footer data-i18n="footer">One instance · Configuration preserved · Verified backups</footer>
+</body></html>

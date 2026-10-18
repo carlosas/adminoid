@@ -1,0 +1,23 @@
+# Local environment
+.venv/
+.env
+.env.*
+!.env.example
+
+# Runtime state: session key, admin hash, config copies with passwords
+state/
+
+# Python
+__pycache__/
+*.pyc
+
+# Never commit server data, backups or logs
+*.bak*
+*.db
+*.sock
+*.log
+*.tar.gz
+
+# Browser tests
+test-results/
+playwright-report/

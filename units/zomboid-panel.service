@@ -1,0 +1,16 @@
+[Unit]
+Description=Project Zomboid web administration panel (LAN)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/zomboid-panel
+ExecStart=%h/zomboid-panel/.venv/bin/python %h/zomboid-panel/app.py
+Restart=on-failure
+RestartSec=10
+UMask=0077
+NoNewPrivileges=true
+
+[Install]
+WantedBy=default.target

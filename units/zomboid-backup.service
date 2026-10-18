@@ -1,0 +1,9 @@
+[Unit]
+Description=Verified Project Zomboid daily backup (defer while players connected)
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/zomboid-panel
+ExecStart=%h/zomboid-panel/.venv/bin/python %h/zomboid-panel/operations.py
+TimeoutStartSec=3600
+UMask=0077
