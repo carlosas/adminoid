@@ -259,6 +259,12 @@ def fake_services(operation_delay=0.4):
                 message = next(m for m, s in O.STEP_OF.items() if s == step)
                 progress(message); time.sleep(operation_delay)
             state['active'] = action != 'stop'
+            if state['active']:
+                # The runner records the configuration it started with once the game is up.
+                from configuration import digest, read_all
+                configs = read_all()
+                write_json(S.STATE / 'applied.json', {k: digest(v) for k,v in configs.items()})
+                write_json(S.STATE / 'applied-values.json', configs)
             if action == 'backup': return 'Verified backup: ' + O.backup('manual')
             return {'start': 'Server started.', 'stop': 'Server stopped; saved configuration preserved.', 'restart': 'Server restarted.',
                     'restore': 'Restore completed.', 'update': 'Update completed.'}[action]

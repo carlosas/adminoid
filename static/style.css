@@ -187,6 +187,7 @@ main{flex:1;min-width:0;padding:28px 40px 48px;display:flex;flex-direction:colum
 .item-main .meta{font-size:13px;color:var(--muted)}
 .item .danger-text{border-color:var(--control)}
 .empty{color:var(--muted);font-size:14px;padding:12px 0}
+.card.empty{padding:20px 22px}
 .activity{list-style:none;margin:0;padding:0}
 .activity li{display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}
 .activity li:last-child{border-bottom:0}
@@ -279,7 +280,9 @@ main{flex:1;min-width:0;padding:28px 40px 48px;display:flex;flex-direction:colum
 .steps li.failed .bar{background:var(--coral)}
 .steps li.failed .label{color:var(--coral)}
 .steps li.failed .marker{border-color:var(--coral);background:var(--coral)}
+.steps li.skipped .bar{background:var(--info)}
 .steps li.skipped .label{text-decoration:line-through}
+.steps li.skipped .marker{border-color:var(--info)}
 @keyframes spin{to{transform:rotate(360deg)}}
 .op-detail{font:13px var(--mono);color:var(--soft);background:var(--sunk);border-radius:8px;padding:10px 14px;overflow-wrap:anywhere}
 .version-line{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
@@ -384,7 +387,7 @@ mark{background:var(--accent);color:var(--accent-ink);border-radius:3px;padding:
   .tiles{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
   .tile{padding:14px}
   .tile-value{font-size:26px}
-  .card{padding:16px}
+  .card,.card.empty{padding:16px}
   .card-head.padded{padding:16px}
   .categories,.review,.load-order{position:static;max-height:none}
   .categories{flex-basis:100%;flex-direction:row;overflow-x:auto;gap:4px;padding-bottom:4px}
