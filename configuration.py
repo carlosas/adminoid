@@ -147,6 +147,9 @@ def categories(tr):
         if m and not m[1].startswith(('Sandbox_', 'UI_')): result[(scope, m[1])] = page
     return result
 
+# Options the game's settings screen leaves out but that belong next to one it shows.
+SIBLINGS = {'StartYear': 'StartMonth'}
+
 def metadata(scope, field, tr, cats):
     key = field.key
     bases = ['Sandbox_' + key, 'Sandbox_' + key.split('.')[-1]] if scope == 'sandbox' else ['UI_ServerOption_' + key]
@@ -159,7 +162,7 @@ def metadata(scope, field, tr, cats):
     choices = {n: tr.get(base + '_option' + str(n), label) for n, label in choices.items()}
     bounds = re.search(r'Min:\s*(-?[\d.]+)\s+Max:\s*(-?[\d.]+)', field.help)
     # Options the game's settings screen does not group go to an Advanced section of their own group.
-    category = cats.get((scope, key), 'Advanced')
+    category = cats.get((scope, key)) or cats.get((scope, SIBLINGS.get(key)), 'Advanced')
     if scope in ('regions', 'points'): category = 'Spawn · ' + ('regions' if scope == 'regions' else 'points')
     if key in ('Mods', 'WorkshopItems', 'Map'): category = 'Mods and maps'
     locked = key in PROTECTED
