@@ -135,7 +135,7 @@ function route(){
   for(const link of $$('[data-view]')){
     if(link.dataset.view===view)link.setAttribute('aria-current','page');else link.removeAttribute('aria-current');
   }
-  document.title=`${t(PZ.views[view].title)} · ${PZ.name}`;
+  document.title=`${t(PZ.views[view].title)} · Adminoid`;
   PZ.views[view].enter?.(arg,entering);
   if(entering)$('#content').scrollTop=0,window.scrollTo(0,0);
 }
