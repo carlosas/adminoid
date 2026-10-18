@@ -141,6 +141,7 @@ function route(){
 }
 PZ.route=route;
 PZ.current=()=>current;
+PZ.leaveView=()=>{if(current)PZ.views[current].leave?.();current=null;};
 PZ.go=hash=>{if(location.hash==='#'+hash)route();else location.hash=hash;};
 window.addEventListener('hashchange',route);
 

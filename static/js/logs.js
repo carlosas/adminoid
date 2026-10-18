@@ -4,7 +4,7 @@ const {t,$,el,api,run,clockPrecise}=window.PZ;
 const PZ=window.PZ;
 const MAX=5000;
 const UNITS={game:'zomboid.service',panel:'zomboid-panel.service',backup:'zomboid-backup.service'};
-let entries=[],cursor=null,paused=false,level='all',timer=null,loading=false;
+let entries=[],cursor=null,paused=false,level='all',timer=null,loading=false,generation=0;
 
 const box=()=>$('#log-lines');
 const query=()=>$('#log-search').value.trim().toLocaleLowerCase();
@@ -57,10 +57,12 @@ function append(items){
 
 async function load(){
   clearTimeout(timer);
+  const mine=++generation;
   const source=$('#log-source').value;
   $('#log-unit').textContent='journalctl · '+UNITS[source];
   $('#log-download').href='/api/logs/download?source='+source;
   const data=await api(`logs?source=${source}&lines=1000`);
+  if(mine!==generation)return;
   entries=data.entries;cursor=data.cursor;
   render(true);
   schedule();
@@ -69,8 +71,10 @@ async function poll(){
   if(loading)return;
   loading=true;
   try{
+    const mine=generation;
     const source=$('#log-source').value;
     const data=await api(`logs?source=${source}&lines=1000`+(cursor?'&cursor='+encodeURIComponent(cursor):''));
+    if(mine!==generation)return;
     cursor=data.cursor||cursor;
     if(data.entries.length)append(data.entries);
   }catch(e){if(e.status===401)return;}

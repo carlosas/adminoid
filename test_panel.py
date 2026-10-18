@@ -213,9 +213,11 @@ class RunnerTests(unittest.TestCase):
         self.assertEqual(runner.console_line('kick',{'user':'Kate','reason':'afk'}),'kickuser "Kate" -r "afk"')
         self.assertEqual(runner.console_line('kick',{'user':'Kate'}),'kickuser "Kate"')
         self.assertEqual(runner.console_line('players',{}),'players')
+        named='Bob: '+'x'*200
+        self.assertEqual(runner.console_line('message',{'text':named}),'servermsg "%s"'%named)
         for args in ({'user':'a"b'},{'user':''},{'user':'x'*65}):
             with self.assertRaises(ValueError): runner.console_line('kick',args)
-        for text in ('','   ','x'*201,None):
+        for text in ('','   ','x'*271,None):
             with self.assertRaises(ValueError): runner.console_line('message',{'text':text})
 
 class ActivityTests(TemporaryServer):
@@ -287,6 +289,11 @@ class StatusTests(TemporaryServer):
         self.assertEqual(O.history()[-1]['memory'],2048)
         O._samples.clear()
         self.assertEqual(O.history()[-1]['memory'],2048)
+        O._samples.clear()
+        # A panel restart keeps the saved history when the sampler runs before any request
+        with patch.object(O,'systemctl',return_value='ActiveState=active\nMemoryCurrent=4096'):
+            O.sample()
+        self.assertEqual([x['memory'] for x in O.history()[-2:]],[2048,4096])
         O._samples.clear()
 
 class PanelApiTests(WebBase):

@@ -5,7 +5,7 @@ const {t,$,$$,api,run}=PZ;
 let statusTimer=null,playersTimer=null;
 
 PZ.showLogin=()=>{
-  clearInterval(statusTimer);clearInterval(playersTimer);
+  clearInterval(statusTimer);clearInterval(playersTimer);PZ.leaveView();
   $('#application').hidden=true;$('#login-panel').hidden=false;
 };
 

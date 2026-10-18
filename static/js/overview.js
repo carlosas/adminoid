@@ -2,7 +2,7 @@
 (()=>{
 const {t,$,el,icon,api,run,bytes,duration,ago,clock}=window.PZ;
 const PZ=window.PZ;
-let logCursor=null,logTimer=null,tick=null,activityTimer=null;
+let logCursor=null,logTimer=null,tick=null,activityTimer=null,logRun=0;
 const logLines=[];
 
 function status(){
@@ -115,6 +115,7 @@ function logRow(e){
 }
 async function pollLog(){
   clearTimeout(logTimer);
+  const mine=++logRun;
   try{
     const data=await api('logs?source=game&lines=6'+(logCursor?'&cursor='+encodeURIComponent(logCursor):''));
     logCursor=data.cursor||logCursor;
@@ -122,7 +123,7 @@ async function pollLog(){
     const box=$('#overview-log');
     box.replaceChildren(...(logLines.length?logLines.map(logRow):[el('div',{class:'muted',text:t('noLogLines')})]));
   }catch{}
-  if(PZ.current()==='overview')logTimer=setTimeout(pollLog,4000);
+  if(mine===logRun&&PZ.current()==='overview')logTimer=setTimeout(pollLog,4000);
 }
 
 function renderJob(){
@@ -140,6 +141,6 @@ PZ.views.overview={title:'overview',status,renderJob,loadActivity,
     clearInterval(tick);tick=setInterval(()=>{if(PZ.state.status)$('#overview-updated').textContent=t('updatedAgo',{time:duration((Date.now()-PZ.state.statusTime)/1000)});},1000);
     clearInterval(activityTimer);activityTimer=setInterval(()=>{if(!document.hidden){run(loadActivity)();run(loadHistory)();}},60000);
   },
-  leave(){clearTimeout(logTimer);clearInterval(tick);clearInterval(activityTimer);}};
+  leave(){logRun++;clearTimeout(logTimer);clearInterval(tick);clearInterval(activityTimer);}};
 $('#message-all').addEventListener('click',run(()=>sendMessage(null)));
 })();

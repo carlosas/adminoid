@@ -185,14 +185,19 @@ def sample():
     memory = props.get('MemoryCurrent', '')
     value = int(memory) if memory.isdigit() and props.get('ActiveState') == 'active' else None
     with _samples_lock:
+        _load_samples()
         _samples.append({'time': time.time(), 'memory': value})
         write_json(S.STATE / 'metrics.json', list(_samples))
 
+def _load_samples():
+    # Restore the saved history after a panel restart; caller holds _samples_lock.
+    if _samples: return
+    try: _samples.extend(json.loads((S.STATE / 'metrics.json').read_text()))
+    except (OSError, ValueError): pass
+
 def history():
     with _samples_lock:
-        if not _samples:
-            try: _samples.extend(json.loads((S.STATE / 'metrics.json').read_text()))
-            except (OSError, ValueError): pass
+        _load_samples()
         cutoff = time.time() - 4 * 3600
         return [x for x in _samples if x['time'] >= cutoff]
 
@@ -338,13 +343,13 @@ def execute(action, payload, progress):
         progress('Saving and shutting down gracefully')
         was_active = preserve_stop()
         if action == 'stop': return 'Server stopped; saved configuration preserved.'
-        if action == 'restart': start(); return 'Server restarted.'
+        if action == 'restart': progress('Starting and checking'); start(); return 'Server restarted.'
         if action == 'backup':
             try:
                 progress('Creating and verifying backup')
                 result = backup('daily' if payload.get('automatic') else 'manual')
             finally:
-                if was_active: start()
+                if was_active: progress('Starting and checking'); start()
             return 'Verified backup: ' + result
         progress('Creating a safety backup')
         backup('pre-restore' if action == 'restore' else 'pre-update')

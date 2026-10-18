@@ -1,4 +1,5 @@
 import collections
+import copy
 import datetime as dt
 import getpass
 import hmac
@@ -132,7 +133,7 @@ def create_app():
         return jsonify(ok=True, message='Player kicked.')
 
     @app.get('/api/activity')
-    def recent_activity(): return jsonify(activity(int(request.args.get('limit', 20))))
+    def recent_activity(): return jsonify(activity(max(1, min(int(request.args.get('limit', 20)), 100))))
 
     @app.get('/api/history')
     def history(): return jsonify(O.history())
@@ -270,7 +271,7 @@ def create_app():
 
     @app.get('/api/operations/<ident>')
     def job(ident):
-        with jobs_lock: value = jobs.get(ident)
+        with jobs_lock: value = copy.deepcopy(jobs.get(ident))
         if value is None: abort(404)
         return jsonify(value)
 
