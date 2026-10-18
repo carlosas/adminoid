@@ -175,6 +175,25 @@ MODS = {
     '2200148440': {'Brita': 'name=Brita\'s Weapon Pack\nid=Brita\nversionMax=41.78\n'},
 }
 
+# Fake Steam Workshop: title, description and required items per Workshop ID.
+STEAM = {
+    '2875848298': ('Common Sense', 'Workshop ID: 2875848298\nMod ID: CommonSense', []),
+    '2613146550': ('True Music', '[b]Mod ID:[/b] truemusic\nMod ID: tsarslib', []),
+    '2850935956': ('Better Car Physics', 'Mod ID: BetterCarPhysics', ['2613146550']),
+    '3619862853': ('ZombieBuddy', 'Mod ID: ZombieBuddy', []),
+    '3809306528': ('Project Viewpoint', 'Mod ID: Viewpoint', ['3619862853']),
+    '3815999052': ('OldPoint - Rotating Overhead Camera', 'Workshop ID: 3815999052\r\nMod ID: OldPoint', ['3809306528', '3619862853']),
+}
+
+def steam_fetch(url, data=None):
+    if data:
+        ids = [v for k, v in data.items() if k.startswith('publishedfileids')]
+        return json.dumps({'response': {'publishedfiledetails': [
+            {'publishedfileid': i, 'result': 1, 'title': STEAM[i][0], 'description': STEAM[i][1]} if i in STEAM else {'publishedfileid': i, 'result': 9} for i in ids]}})
+    ident = url.rsplit('=', 1)[1]
+    links = ''.join(f'<a href="https://steamcommunity.com/workshop/filedetails/?id={r}" target="_blank">\n<div class="requiredItem">\n{STEAM[r][0]}</div></a>' for r in STEAM[ident][2])
+    return f'<html><div class="requiredItemsContainer" id="RequiredItems">{links}</div></html>'
+
 LOG = ['LOG  : General      f:0, t:{ms}> Saving world...', 'LOG  : General      f:0, t:{ms}> World saved (1.8 s)',
        'LOG  : Network      f:0, t:{ms}> ConnectionManager: [fully-connected] "" connection: guid=1 username="Spiffo"',
        'WARN : General      f:0, t:{ms}> Slow chunk load at 34,21 (412 ms)', 'LOG  : Network      f:0, t:{ms}> Player "Kate" ping 38 ms',
@@ -270,7 +289,8 @@ def fake_services(operation_delay=0.4):
                     'restore': 'Restore completed.', 'update': 'Update completed.'}[action]
 
     with patch.object(O, 'systemctl', side_effect=systemctl), patch.object(O, 'console', side_effect=console), \
-         patch.object(O, 'command', side_effect=command), patch.object(O, 'execute', side_effect=execute):
+         patch.object(O, 'command', side_effect=command), patch.object(O, 'execute', side_effect=execute), \
+         patch.object(O, 'fetch', side_effect=steam_fetch):
         yield state
 
 if __name__ == '__main__':

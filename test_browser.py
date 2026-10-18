@@ -104,6 +104,25 @@ def main():
                 mods = C.Document('server', C.read_all()['server']).fields['Mods'].value
                 assert '\\tsarslib;\\BetterCarPhysics' in mods, mods
 
+                # Add from the Workshop by pasting a link: required items and their Mod IDs come along, required ones first
+                page.locator('.sidebar').get_by_role('link', name='Mods').click()
+                expect(page.locator('#workshop-rows')).to_contain_text('Common Sense')
+                page.get_by_role('button', name='Añadir mod del Workshop').click()
+                page.locator('#dialog input[name=workshop]').fill('https://steamcommunity.com/sharedfiles/filedetails/?id=3815999052&searchtext=')
+                expect(page.locator('#dialog .ws-item')).to_have_count(3)
+                expect(page.locator('#dialog')).to_contain_text('OldPoint - Rotating Overhead Camera')
+                page.locator('#dialog').get_by_role('button', name='Añadir', exact=True).click()
+                expect(page.locator('#workshop-rows tr')).to_have_count(6)
+                expect(page.locator('#workshop-rows tr').last).to_contain_text('Se descargará al reiniciar')
+                expect(page.locator('#mod-issues')).to_contain_text('ZombieBuddy, Viewpoint, OldPoint se descargarán cuando reinicies')
+                expect(page.locator('[data-badge=mods]')).to_be_hidden()
+                page.get_by_role('link', name='Revisar y guardar').click()
+                page.locator('#save-changes').click()
+                expect(page.locator('#review-count')).to_have_text('0')
+                fields = C.Document('server', C.read_all()['server']).fields
+                assert fields['WorkshopItems'].value.endswith(';3619862853;3809306528;3815999052'), fields['WorkshopItems'].value
+                assert fields['Mods'].value.endswith(';\\ZombieBuddy;\\Viewpoint;\\OldPoint'), fields['Mods'].value
+
                 # Maintenance: restart with step progress, then a restore that needs the server name
                 page.locator('.sidebar').get_by_role('link', name='Mantenimiento').click()
                 page.locator('#view-maintenance').get_by_role('button', name='Reiniciar…').click()
@@ -155,7 +174,7 @@ def main():
                 assert not errors, errors
                 browser.close()
             server.close()
-    print('Browser OK: Spanish/English, overview, message, kick, settings review, pending filter, mods dependency fix, '
+    print('Browser OK: Spanish/English, overview, message, kick, settings review, pending filter, mods dependency fix, add from Workshop, '
           'restart progress, restore confirmation, live logs, phone layout and logout.')
 
 if __name__ == '__main__': main()
