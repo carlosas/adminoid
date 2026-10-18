@@ -10,7 +10,8 @@ const isList=(scope,f)=>scope==='server'&&LISTS.includes(f.key);
 const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
 const edited=(scope,f)=>Object.hasOwn(PZ.state.edits[scope]||{},f.key);
 const pending=f=>f.applied_known&&!f.secret&&!same(f.applied,f.value);
-const groupOf=(scope,f)=>f.mod?'mods':scope==='regions'||scope==='points'||/^(Advanced|Avanzado)\b/.test(f.category)?'other':scope;
+const groupOf=(scope,f)=>f.mod?'mods':scope==='regions'||scope==='points'?'other':scope;
+const isAdvanced=c=>/^(Advanced|Avanzado)$/.test(c.name);
 
 function display(scope,f,v){
   if(f.secret)return v?t('newPassword'):t('hiddenValue');
@@ -26,7 +27,7 @@ function buildCategories(){
   const map=new Map();
   for(const [scope,doc] of Object.entries(PZ.state.config)){
     for(const f of doc.fields){
-      const id=scope==='regions'||scope==='points'?'spawn':f.mod?'mod:'+f.mod:f.category;
+      const id=scope==='regions'||scope==='points'?'spawn':f.mod?'mod:'+f.mod:scope==='sandbox'?'sandbox:'+f.category:f.category;
       if(!map.has(id))map.set(id,{id,name:id==='spawn'?t('spawnCategory'):f.category,group:groupOf(scope,f),fields:[]});
       map.get(id).fields.push([scope,f]);
     }
@@ -35,7 +36,7 @@ function buildCategories(){
   for(const mod of PZ.state.config.sandbox?.mods||[])
     if(!map.has('mod:'+mod.id))map.set('mod:'+mod.id,{id:'mod:'+mod.id,name:mod.name,group:'mods',fields:[]});
   const order={server:0,sandbox:1,other:2,mods:3};
-  categories=[...map.values()].sort((a,b)=>order[a.group]-order[b.group]||(a.id==='spawn')-(b.id==='spawn')||a.name.localeCompare(b.name));
+  categories=[...map.values()].sort((a,b)=>order[a.group]-order[b.group]||(a.id==='spawn')-(b.id==='spawn')||isAdvanced(a)-isAdvanced(b)||a.name.localeCompare(b.name));
 }
 
 function matches([scope,f]){

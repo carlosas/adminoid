@@ -158,7 +158,8 @@ def metadata(scope, field, tr, cats):
     choices = {int(n): label.strip() for n, label in re.findall(r'^\s*(\d+)\s*=\s*(.+)$', field.help, re.M)}
     choices = {n: tr.get(base + '_option' + str(n), label) for n, label in choices.items()}
     bounds = re.search(r'Min:\s*(-?[\d.]+)\s+Max:\s*(-?[\d.]+)', field.help)
-    category = cats.get((scope, key), 'Advanced · ' + scope)
+    # Options the game's settings screen does not group go to an Advanced section of their own group.
+    category = cats.get((scope, key), 'Advanced')
     if scope in ('regions', 'points'): category = 'Spawn · ' + ('regions' if scope == 'regions' else 'points')
     if key in ('Mods', 'WorkshopItems', 'Map'): category = 'Mods and maps'
     locked = key in PROTECTED
@@ -291,7 +292,7 @@ def catalog(lang='en'):
             
             if lang=='es':
                 for f in fields:
-                    f['category']=f['category'].replace('Advanced · ','Avanzado · ').replace('Spawn · regions','Aparición · regiones').replace('Spawn · points','Aparición · puntos').replace('Mods and maps','Mods y mapas')
+                    f['category']=f['category'].replace('Spawn · regions','Aparición · regiones').replace('Spawn · points','Aparición · puntos').replace('Mods and maps','Mods y mapas')
                     if f['category']=='Advanced': f['category']='Avanzado'
             result[scope] = dict(revision=digest(text), fields=fields, error=None)
             if scope == 'sandbox': result[scope]['mods'] = [{'id': m['id'], 'name': m['name'], 'options': len(m['options'])} for m in mods]

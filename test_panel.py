@@ -51,8 +51,8 @@ class ParserTests(TemporaryServer):
     def test_english_catalog_fallback_categories(self):
         catalog=C.catalog('en')
         categories={f['category'] for doc in catalog.values() for f in doc['fields']}
-        self.assertIn('Advanced · server',categories)
-        self.assertNotIn('Avanzado · server',categories)
+        self.assertIn('Advanced',categories)
+        self.assertNotIn('Avanzado',categories)
 
     def test_ini_lossless_and_secret(self):
         text=C.Document('server',INI).edit({'Password':'a&b|$x"','PVP':True})
@@ -170,7 +170,7 @@ class WebTests(WebBase):
         self.login()
         cfg=self.client.get('/api/config').json
         categories={f['category'] for doc in cfg.values() for f in doc['fields']}
-        self.assertIn('Advanced · server',categories)
+        self.assertIn('Advanced',categories)
         error=self.post('operations',{'action':'invalid'})
         self.assertEqual(error.status_code,400)
         self.assertEqual(error.json['error'],'Action not allowed.')
@@ -181,8 +181,8 @@ class WebTests(WebBase):
         self.login()
         cfg=self.client.get('/api/config').json
         categories={f['category'] for doc in cfg.values() for f in doc['fields']}
-        self.assertIn('Avanzado · server',categories)
-        self.assertNotIn('Advanced · server',categories)
+        self.assertIn('Avanzado',categories)
+        self.assertNotIn('Advanced',categories)
         error=self.post('operations',{'action':'invalid'})
         self.assertEqual(error.json['error'],'Acción no permitida.')
 
