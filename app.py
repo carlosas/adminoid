@@ -116,12 +116,11 @@ def create_app():
 
     @app.post('/api/players/message')
     def player_message():
-        data = request.get_json(); text = data.get('text'); to = data.get('to')
+        text = request.get_json().get('text')
         if not isinstance(text, str) or not text.strip() or len(text) > 200: raise ValueError('Invalid text.')
-        if to is not None and (not isinstance(to, str) or len(to) > 64): raise ValueError('Invalid player name.')
-        # The game console only broadcasts; a message for one player is addressed by name.
-        O.broadcast(f'{to}: {text}' if to else text)
-        record('message', 'info', to=to, text=text.strip()[:200])
+        # The game console can only broadcast to everyone; there are no private messages.
+        O.broadcast(text)
+        record('message', 'info', text=text.strip()[:200])
         return jsonify(ok=True, message='Message sent.')
 
     @app.post('/api/players/kick')

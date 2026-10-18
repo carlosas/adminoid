@@ -213,11 +213,9 @@ class RunnerTests(unittest.TestCase):
         self.assertEqual(runner.console_line('kick',{'user':'Kate','reason':'afk'}),'kickuser "Kate" -r "afk"')
         self.assertEqual(runner.console_line('kick',{'user':'Kate'}),'kickuser "Kate"')
         self.assertEqual(runner.console_line('players',{}),'players')
-        named='Bob: '+'x'*200
-        self.assertEqual(runner.console_line('message',{'text':named}),'servermsg "%s"'%named)
         for args in ({'user':'a"b'},{'user':''},{'user':'x'*65}):
             with self.assertRaises(ValueError): runner.console_line('kick',args)
-        for text in ('','   ','x'*271,None):
+        for text in ('','   ','x'*201,None):
             with self.assertRaises(ValueError): runner.console_line('message',{'text':text})
 
 class ActivityTests(TemporaryServer):
@@ -305,14 +303,13 @@ class PanelApiTests(WebBase):
             return {'count':1,'names':['Kate']} if cmd=='players' else {'sent':True}
         with patch.object(O,'console',side_effect=console),patch.object(O,'systemctl',return_value='active'):
             self.assertEqual(self.post('players/message',{'text':'hola'}).status_code,200)
-            self.assertEqual(self.post('players/message',{'text':'hola','to':'Kate'}).status_code,200)
             self.assertEqual(self.post('players/message',{'text':''}).status_code,400)
             self.assertEqual(self.post('players/kick',{'name':'Kate','reason':'afk'}).status_code,200)
             self.assertEqual(self.post('players/kick',{'name':'Nobody'}).json['error'],'That player is not connected.')
-        self.assertIn(('message',{'text':'hola'}),calls);self.assertIn(('message',{'text':'Kate: hola'}),calls)
+        self.assertIn(('message',{'text':'hola'}),calls)
         self.assertIn(('kick',{'user':'Kate','reason':'afk'}),calls)
         kinds=[e['kind'] for e in self.client.get('/api/activity').json]
-        self.assertEqual(kinds,['kick','message','message'])
+        self.assertEqual(kinds,['kick','message'])
     def test_operation_steps_and_activity(self):
         import time
         self.login()

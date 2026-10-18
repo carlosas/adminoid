@@ -60,7 +60,7 @@ Notes:
 - Spawn: the Spawn category adds or removes regions and points per profession. Changing the structure regenerates the file; the original is kept in config-history. Do not enable regions that point to missing maps.
 - Mods and maps: WorkshopItems holds numeric IDs; Mods holds internal IDs. They are not interchangeable. The server handles Workshop downloads at startup.
 - Operations that stop the server warn connected players in game and wait 10 seconds first. If the player state cannot be checked, it is shown as unknown. A shutdown is never forced when the local console is missing.
-- Player messages: the game console can only broadcast, so a message "for" one player is sent to everyone, prefixed with their name.
+- Player messages: the game console can only broadcast, so the panel only offers a message to everyone.
 - Update uses SteamCMD, requires confirmed success and checks Build 42 before opening the world. The packaged version is read from Core.class; if its format changes, the update is explicitly blocked and the check must be adapted. JVM limit: 5 GiB.
 - Backups stop the game to get consistent files. The automatic backup is attempted every 15 minutes from 04:00 UTC until one succeeds that day, without interrupting players. Seven automatic backups are kept. Manual, pre-update and pre-restore backups are not rotated: keep an eye on disk space.
 - Restore validates content, space and paths and creates a rescue backup before replacing data. Do not put untrusted files in the backup directory.

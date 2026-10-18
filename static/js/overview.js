@@ -49,17 +49,16 @@ function renderPlayers(){
   list.replaceChildren(...p.names.map(name=>el('div',{class:'item'},
     el('span',{class:'avatar '+PZ.tone(name),text:PZ.initial(name),'aria-hidden':'true'}),
     el('div',{class:'item-main'},el('div',{class:'name',text:name}),el('div',{class:'meta',text:p.since?.[name]?t('connectedAgo',{time:duration(Date.now()/1000-p.since[name])}):''})),
-    el('button',{class:'btn small',text:t('message'),'aria-label':t('messageTo',{name}),onclick:run(()=>sendMessage(name))}),
     el('button',{class:'btn small danger-text',text:t('kick'),'aria-label':t('kickName',{name}),onclick:run(()=>kick(name))}))));
 }
 
-async function sendMessage(to){
-  const values=await PZ.dialog({icon:'info',title:to?t('messageTitleTo',{name:to}):t('messageTitleAll'),
+async function sendMessage(){
+  const values=await PZ.dialog({icon:'info',title:t('messageTitleAll'),
     body:[el('label',{class:'stack'},el('span',{text:t('messageLabel')}),el('textarea',{name:'text',maxlength:200,required:true})),
-      el('p',{class:'hint',text:to?t('messageHintTo',{name:to}):t('messageHintAll')})],
+      el('p',{class:'hint',text:t('messageHintAll')})],
     confirm:t('send'),validate:f=>f.elements.text.value.trim().length>0});
   if(!values)return;
-  const r=await api('players/message',{text:values.text.trim(),to});
+  const r=await api('players/message',{text:values.text.trim()});
   PZ.toast(r.message,true);loadActivity();
 }
 async function kick(name){
@@ -81,7 +80,7 @@ function activityText(e){
     case 'config':return [t('actConfig',{count:p.count}),t('actPendingRestart')];
     case 'started':return [t('actStarted'),p.seconds!=null?t('actLoadedIn',{time:duration(p.seconds)}):''];
     case 'crashed':return [t('actCrashed'),t('actExitCode',{code:p.code})];
-    case 'message':return [p.to?t('actMessageTo',{name:p.to}):t('actMessage'),p.text||''];
+    case 'message':return [t('actMessage'),p.text||''];
     case 'kick':return [t('actKick',{name:p.name}),p.reason||''];
     default:return [e.kind,''];
   }
@@ -142,5 +141,5 @@ PZ.views.overview={title:'overview',status,renderJob,loadActivity,
     clearInterval(activityTimer);activityTimer=setInterval(()=>{if(!document.hidden){run(loadActivity)();run(loadHistory)();}},60000);
   },
   leave(){logRun++;clearTimeout(logTimer);clearInterval(tick);clearInterval(activityTimer);}};
-$('#message-all').addEventListener('click',run(()=>sendMessage(null)));
+$('#message-all').addEventListener('click',run(sendMessage));
 })();

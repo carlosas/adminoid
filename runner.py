@@ -25,7 +25,7 @@ def clean_text(value, limit):
 
 def console_line(command, args):
     """Build the console line for an allowed command; arguments never reach the console unquoted."""
-    if command == 'message': return 'servermsg "%s"' % clean_text(args.get('text'), 270)
+    if command == 'message': return 'servermsg "%s"' % clean_text(args.get('text'), 200)
     if command == 'kick':
         user = args.get('user')
         if not isinstance(user, str) or not USERNAME.fullmatch(user): raise ValueError('Invalid player name.')
