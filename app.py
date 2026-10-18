@@ -235,6 +235,13 @@ def create_app():
     @app.get('/api/mods')
     def mods(): return jsonify(O.mods_report())
 
+    @app.post('/api/mods/delete')
+    def mods_delete():
+        ident = request.get_json().get('workshop')
+        mods = O.delete_workshop(ident)
+        record('mod-delete', 'warn', workshop=ident, mods=mods)
+        return jsonify(ok=True, message='Files deleted.')
+
     @app.get('/api/workshop')
     def workshop(): return jsonify(O.workshop_info(request.args.get('ids', '').split(',')))
 

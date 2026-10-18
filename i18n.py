@@ -98,6 +98,10 @@ MESSAGES = {
  'That player is not connected.':'Ese jugador no está conectado.',
  'Message sent.':'Mensaje enviado.',
  'Player kicked.':'Jugador expulsado.',
+ 'Invalid Workshop ID.':'ID de Workshop no válido.','Files deleted.':'Archivos borrados.',
+ 'The item is still in WorkshopItems. Remove it and save first.':'El elemento sigue en WorkshopItems. Quítalo y guarda antes.',
+ 'One of its mods is still in the Mods line. Remove it and save first.':'Uno de sus mods sigue en la línea Mods. Quítalo y guarda antes.',
+ 'No downloaded files were found for this item.':'No hay archivos descargados de este elemento.',
  'Invalid log source.':'Origen de registros inválido.',
  'Invalid log cursor.':'Posición de registros inválida.',
 }

@@ -267,6 +267,16 @@ class ModsTests(TemporaryServer):
         issues={(i['kind'],i['mod'],i.get('requires')) for i in report['issues']}
         self.assertEqual(issues,{('order','Local','Cars'),('missing','Cars','Lib'),('missing','Cars','Extra'),('not-installed','Ghost',None)})
         self.assertEqual(report['active'],['\\Local','\\Cars','Ghost'])
+    def test_delete_unused_workshop_files(self):
+        workshop=S.GAME/'steamapps/workshop/content/108600'
+        self.mod(workshop/'111/mods/Lib','42','name=Lib\nid=Lib\n')
+        self.mod(workshop/'222/mods/Cars','42','name=Cars\nid=Cars\n')
+        self.mod(workshop/'333/mods/Old','42','name=Old\nid=Old\n')
+        atomic(S.DATA/'Server'/S.FILES['server'],INI.replace('Mods=\n','Mods=\\Cars\n').replace('WorkshopItems=\n','WorkshopItems=111\n'))
+        for ident,error in (('111','WorkshopItems'),('222','Mods line'),('444','No downloaded'),('../x','Invalid')):
+            with self.assertRaisesRegex(ValueError,error): O.delete_workshop(ident)
+        self.assertEqual(O.delete_workshop('333'),['Old'])
+        self.assertFalse((workshop/'333').exists());self.assertTrue((workshop/'222').exists())
     def test_workshop_lookup(self):
         from test_fixture import steam_fetch
         self.assertEqual(O.description_mod_ids('[h1]Info[/h1]\r\nWorkshop ID: 1\r\n[b]Mod ID:[/b] A; \\B\nMod IDs: C, A\nmod id = <b>D</b>\nUses the mod ID: no'),['A','B','C','D'])

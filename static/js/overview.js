@@ -78,6 +78,7 @@ function activityText(e){
     case 'crashed':return [t('actCrashed'),t('actExitCode',{code:p.code})];
     case 'message':return [t('actMessage'),p.text||''];
     case 'kick':return [t('actKick',{name:p.name}),p.reason||''];
+    case 'mod-delete':return [t('actModDelete',{id:p.workshop}),(p.mods||[]).join(', ')];
     default:return [e.kind,''];
   }
 }

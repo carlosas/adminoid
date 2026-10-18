@@ -143,12 +143,15 @@ function renderTable(ids,issues,canEdit){
       if(active)setTokens(list.filter(x=>strip(x)!==m.id));
       else{setTokens([...list,tokenFor(m.id,list)]);addWorkshop(m.workshop);}
     }}):null;
+    // Downloaded files of an item that is no longer in WorkshopItems can be deleted.
+    const unused=canEdit&&m.workshop&&!workshopItems().includes(m.workshop)&&!PZ.state.mods.workshop.includes(m.workshop)&&!active&&!PZ.state.mods.active.map(strip).includes(m.id);
+    const remove=unused?el('button',{class:'link small coral-text',type:'button',text:t('deleteFiles'),'aria-label':t('deleteFilesName',{name:m.name||m.id}),onclick:run(()=>deleteFiles(m))}):null;
     return el('tr',{class:missing.length?'problem':''},
       el('td',{},el('div',{class:'mod-name',text:m.name||m.id}),el('div',{class:'mod-id',text:m.id})),
       el('td',{class:m.workshop?'mono small':'small muted',text:m.workshop||t('localMod')}),
       el('td',{class:v.ok?(v.known?'':'muted'):'warn-text',text:v.text,title:v.ok?'':t('versionMismatch',{v:PZ.state.status?.version||''})}),
       el('td',{},m.requires.length?m.requires.map((dep,i)=>[i?', ':'',el('span',{class:'mono small'+(ids.includes(dep)?'':' coral-text'),text:dep}),ids.includes(dep)?'':el('span',{class:'small coral-text',text:' · '+t('notActive')})]):el('span',{class:'muted',text:'—'})),
-      el('td',{},el('div',{class:'mod-state'},state,toggle)));
+      el('td',{},el('div',{class:'mod-state'},state,toggle,remove)));
   }):[el('tr',{},el('td',{colspan:5,class:'muted',text:PZ.state.mods.installed.length?t('noResults'):t('noInstalledMods')}))]));
 }
 
@@ -223,6 +226,17 @@ async function addByWorkshop(){
   mods.push(...values.mods.split(/[,\s]+/).map(x=>x.replace(/^\\+/,'')).filter(Boolean));
   if(mods.length)addMods(mods);
   PZ.toast(t('workshopAdded'),true);
+}
+
+async function deleteFiles(mod){
+  const mods=PZ.state.mods.installed.filter(m=>m.workshop===mod.workshop).map(m=>m.id);
+  const ok=await PZ.dialog({icon:'warning',tone:'danger',title:t('deleteFilesTitle',{name:mod.name||mod.id}),sub:`Workshop ${mod.workshop}`,
+    body:[el('p',{text:t('deleteFilesText')}),el('p',{class:'small muted'},t('deleteFilesMods'),' ',mods.map((id,n)=>[n?', ':'',el('span',{class:'mono',text:id})]))],
+    confirm:t('deleteFiles'),confirmClass:'danger'});
+  if(!ok)return;
+  const r=await api('mods/delete',{workshop:mod.workshop});
+  PZ.toast(r.message,true);
+  await load();
 }
 
 async function load(){
