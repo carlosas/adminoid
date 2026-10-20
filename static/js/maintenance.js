@@ -45,7 +45,7 @@ function renderService(){
     const op=b.dataset.op;
     b.disabled=running||(op==='start'&&active)||((op==='stop'||op==='restart')&&!active);
   }
-  for(const b of $$('#view-overview [data-op]'))b.disabled=running;
+  for(const b of $$('.pending-banner [data-op], #view-overview [data-op]'))b.disabled=running;
   $('#service-note').textContent=running?t('lockedWhileRunning',{action:t('jobRunning_'+PZ.state.job.action).toLowerCase()}):s?t('serviceState',{state:PZ.stateLabel(s.state)}):'';
   if(s){
     const v=s.version||'';

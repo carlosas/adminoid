@@ -87,9 +87,9 @@
 <div><h1 data-i18n="overview">Overview</h1><div class="sub"><span class="dot ok live"></span><span id="overview-updated"></span></div></div>
 </div>
 <div id="job-banner" class="banner info" role="status" hidden></div>
-<div id="pending-banner" class="banner amber" role="status" hidden>
+<div id="pending-banner" class="banner amber pending-banner" role="status" hidden>
 <svg class="banner-icon"><use href="#i-warning"/></svg>
-<div class="grow"><div class="banner-title" data-i18n="pendingTitle">Saved changes are not applied yet</div><div class="banner-text" id="pending-text"></div></div>
+<div class="grow"><div class="banner-title" data-i18n="pendingTitle">Saved changes are not applied yet</div><div class="banner-text pending-text" id="pending-text"></div></div>
 <a href="#settings/pending" data-i18n="viewChanges">View changes</a>
 <button class="btn amber-fill" data-op="restart" data-i18n="restartNow">Restart now</button>
 </div>
@@ -120,6 +120,12 @@
 <div class="toolbar">
 <label class="search"><svg><use href="#i-search"/></svg><span class="sr-only" data-i18n="searchSetting">Search setting</span><input id="search" type="search" autocomplete="off" data-i18n-placeholder="searchPlaceholder" placeholder="Search…"><kbd>/</kbd></label>
 <div class="segmented" role="group" id="settings-filter" data-i18n-aria="filter" aria-label="Filter"></div>
+</div>
+<div id="settings-pending-banner" class="banner amber pending-banner" role="status" hidden>
+<svg class="banner-icon"><use href="#i-warning"/></svg>
+<div class="grow"><div class="banner-title" data-i18n="pendingTitle">Saved changes are not applied yet</div><div class="banner-text pending-text"></div></div>
+<a href="#settings/pending" data-i18n="viewChanges">View changes</a>
+<button class="btn amber-fill" data-op="restart" data-i18n="restartNow">Restart now</button>
 </div>
 <div id="settings-errors"></div>
 <div class="settings-layout">

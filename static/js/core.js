@@ -150,7 +150,7 @@ PZ.stateLabel=s=>['active','inactive','failed','activating','deactivating'].incl
 PZ.stateTone=s=>s==='active'?'ok':s==='failed'?'error':['activating','deactivating','reloading'].includes(s)?'warn':'unknown';
 async function refreshStatus(){
   PZ.state.status=await api('status');PZ.state.statusTime=Date.now();
-  renderServerCard();updateBadges();PZ.views[current]?.status?.();
+  renderServerCard();updateBadges();renderPending();PZ.views[current]?.status?.();
 }
 async function refreshPlayers(){
   PZ.state.players=await api('players');renderServerCard();PZ.views[current]?.status?.();
@@ -166,7 +166,19 @@ function renderServerCard(){
   for(const n of $$('.server-summary'))n.textContent=text;
   const dot=$('.server-summary-mobile .dot');if(dot)dot.className='dot '+(look==='unknown'?'':look);
 }
-Object.assign(PZ,{refreshStatus,refreshPlayers,renderServerCard});
+// Saved changes that need a restart, shown on the overview and in settings.
+function renderPending(){
+  const s=PZ.state.status;if(!s)return;
+  const files=s.pending||[];
+  const show=s.applied_known&&files.length&&s.state==='active';
+  const names=files.map(f=>f==='server'?`${PZ.name}.ini`:t('file_'+f));
+  const count=Object.values(s.pending_changes||{}).reduce((a,n)=>a+(n||0),0);
+  for(const banner of $$('.pending-banner')){
+    banner.hidden=!show;
+    if(show)banner.querySelector('.pending-text').textContent=t('pendingText',{files:names.join(t('and')),count});
+  }
+}
+Object.assign(PZ,{refreshStatus,refreshPlayers,renderServerCard,renderPending});
 
 function updateBadges(){
   const set=(name,value)=>{const b=$(`[data-badge="${name}"]`);if(!b)return;b.hidden=!value;b.textContent=value||'';};

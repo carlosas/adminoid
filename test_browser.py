@@ -80,6 +80,12 @@ def main():
                 expect(page.locator('#review-count')).to_have_text('0')
                 sandbox = C.Document('sandbox', C.read_all()['sandbox']).fields
                 assert sandbox['Zombies'].value == 5 and sandbox['ZombieConfig.PopulationMultiplier'].value == 0.15
+                # The same restart warning as the overview shows up in settings after saving
+                banner = page.locator('#settings-pending-banner')
+                expect(banner).to_be_visible()
+                expect(banner).to_contain_text('SandboxVars')
+                expect(banner.get_by_role('button', name='Reiniciar ahora')).to_be_enabled()
+                expect(banner.get_by_role('link', name='Ver cambios')).to_have_attribute('href', '#settings/pending')
 
                 page.locator('#search').fill('MinutesPerPage')
                 expect(page.locator('#fields .row')).to_have_count(1)

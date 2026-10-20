@@ -23,17 +23,7 @@ function status(){
   const b=s.last_backup;
   $('#tile-backup').textContent=b?ago(b.mtime):t('none');
   $('#tile-backup-foot').replaceChildren(...(b?[icon('check'),t('verifiedSize',{size:bytes(b.size).join(' ')})]:[t('noBackupsYet')]));
-  renderPending();renderPlayers();
-}
-
-function renderPending(){
-  const s=PZ.state.status;const banner=$('#pending-banner');
-  const files=s.pending||[];
-  banner.hidden=!(s.applied_known&&files.length&&s.state==='active');
-  if(banner.hidden)return;
-  const names=files.map(f=>f==='server'?`${PZ.name}.ini`:t('file_'+f));
-  const count=Object.values(s.pending_changes||{}).reduce((a,n)=>a+(n||0),0);
-  $('#pending-text').textContent=t('pendingText',{files:names.join(t('and')),count});
+  renderPlayers();
 }
 
 function renderPlayers(){
