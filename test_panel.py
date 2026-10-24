@@ -1,6 +1,7 @@
 import copy
 import io
 import json
+import re
 import tarfile
 import tempfile
 import unittest
@@ -140,6 +141,26 @@ class BackupTests(TemporaryServer):
             with self.assertRaises(ValueError): O.execute('update',{'confirmed':True},lambda x:None)
             start.assert_not_called()
             self.assertEqual(len(list(S.BACKUPS.glob('zomboid-pre-update-*'))),1)
+    def test_wipe(self):
+        world=S.DATA/'Saves/Multiplayer'/S.NAME; (world/'map').mkdir(parents=True); (world/'players.db').write_bytes(b'chars')
+        for p in ('db/'+S.NAME+'.db','backups/startup/backup_1.zip','backups/version/backup_1.zip','Lua/MaxTimeInServer.txt','mods/local/mod.info','Logs/server.txt'):
+            (S.DATA/p).parent.mkdir(parents=True,exist_ok=True);(S.DATA/p).write_text('x')
+        removed=O.wipe()
+        self.assertIn(str(Path('Saves/Multiplayer')/S.NAME),removed)
+        for p in ('Saves/Multiplayer/'+S.NAME,'backups/startup','backups/version','Lua/MaxTimeInServer.txt'): self.assertFalse((S.DATA/p).exists(),p)
+        for p in ('db/'+S.NAME+'.db','mods/local/mod.info','Logs/server.txt','Lua',('Server/'+S.FILES['sandbox'])): self.assertTrue((S.DATA/p).exists(),p)
+        ini=(S.DATA/'Server'/S.FILES['server']).read_text()
+        self.assertNotIn('ResetID=99\n',ini);self.assertRegex(ini,r'(?m)^ResetID=\d+$')
+        self.assertEqual(ini.replace(re.search(r'(?m)^ResetID=\d+$',ini)[0],'ResetID=99'),INI)
+        self.assertEqual(O.wipe(),[])
+    def test_wipe_execute(self):
+        (S.DATA/'Saves/Multiplayer'/S.NAME).mkdir(parents=True)
+        with patch.object(O,'players',return_value={'count':0}),patch.object(O,'preserve_stop',return_value=False),patch.object(O,'start') as start:
+            self.assertTrue(O.execute('wipe',{'confirmed':True},lambda x:None).startswith('World wiped'))
+            start.assert_not_called()
+        self.assertFalse((S.DATA/'Saves/Multiplayer'/S.NAME).exists())
+        backups=O.backup_list();self.assertEqual((backups[0]['label'],backups[0]['kind']),('pre-wipe','rescue'))
+        self.assertTrue(any(m.startswith('Zomboid/Saves/Multiplayer/') for m in tarfile.open(O.resolve_backup(backups[0]['name'])).getnames()))
 
 class WebBase(TemporaryServer):
     def setUp(self):
@@ -437,5 +458,18 @@ class PanelApiTests(WebBase):
             self.post('operations',{'action':'stop','confirmed':True})
             import time;time.sleep(.2)
         self.assertIn('10 segundos',execute.call_args[0][1]['notice'])
+    def test_wipe_requires_password(self):
+        self.login()
+        with patch.object(O,'execute',return_value='ok') as execute:
+            r=self.post('operations',{'action':'wipe','confirmed':True,'password':'wrong'})
+            self.assertEqual((r.status_code,r.json['error']),(400,'Incorrect password.'))
+            self.assertEqual(self.post('operations',{'action':'wipe','confirmed':True}).status_code,400)
+            self.assertEqual(self.post('operations',{'action':'wipe','confirmed':True,'password':'test-password-long'}).status_code,202)
+            import time;time.sleep(.2)
+            self.assertEqual(execute.call_count,1);self.assertEqual(execute.call_args[0][0],'wipe')
+            for _ in range(5): self.post('operations',{'action':'wipe','confirmed':True,'password':'wrong'})
+            self.assertEqual(self.post('operations',{'action':'wipe','confirmed':True,'password':'test-password-long'}).status_code,429)
+        # A wrong password does not end the session.
+        self.assertEqual(self.client.get('/api/activity').status_code,200)
 
 if __name__=='__main__': unittest.main()

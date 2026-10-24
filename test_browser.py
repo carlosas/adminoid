@@ -192,6 +192,18 @@ def main():
                 expect(confirm).to_be_enabled()
                 confirm.click()
                 expect(page.locator('#operation-card')).to_contain_text('Restauración completada')
+                # Danger zone: the wipe asks for the panel password again; a wrong one keeps the session
+                page.locator('.danger-zone').get_by_role('button', name='Borrar servidor…').click()
+                confirm = page.locator('#dialog').get_by_role('button', name='Borrar y reiniciar')
+                expect(confirm).to_be_disabled()
+                page.locator('#dialog input[name=password]').fill('wrong-password')
+                confirm.click()
+                expect(page.locator('#toast')).to_have_text('Contraseña incorrecta.')
+                page.locator('.danger-zone').get_by_role('button', name='Borrar servidor…').click()
+                page.locator('#dialog input[name=password]').fill(password)
+                page.locator('#dialog').get_by_role('button', name='Borrar y reiniciar').click()
+                expect(page.locator('#operation-card')).to_contain_text('Servidor borrado')
+                expect(page.locator('#operation-card .steps li.done')).to_have_count(5)
 
                 # Logs: level filters, search highlight, pause
                 page.locator('.sidebar').get_by_role('link', name='Registros').click()
@@ -225,6 +237,6 @@ def main():
                 browser.close()
             server.close()
     print('Browser OK: Spanish/English, overview, message, kick, settings review, pending filter, mods dependency fix, add from Workshop, '
-          'restart progress, restore confirmation, live logs, phone layout and logout.')
+          'restart progress, restore and wipe confirmation, live logs, phone layout and logout.')
 
 if __name__ == '__main__': main()

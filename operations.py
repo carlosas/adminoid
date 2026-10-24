@@ -11,6 +11,7 @@ import threading
 import time
 from collections import deque
 from pathlib import Path, PurePosixPath
+from secrets import randbelow
 
 import settings as S
 from common import atomic, write_json, locked, record
@@ -217,7 +218,7 @@ def validate_archive(path):
     return size
 
 def backup(label):
-    if label not in ('daily', 'manual', 'pre-update', 'pre-restore'): raise ValueError('Invalid backup type.')
+    if label not in ('daily', 'manual', 'pre-update', 'pre-restore', 'pre-wipe'): raise ValueError('Invalid backup type.')
     S.BACKUPS.mkdir(mode=0o700, exist_ok=True); os.chmod(S.BACKUPS, 0o700)
     stamp = dt.datetime.now(dt.timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')
     path = S.BACKUPS / f'zomboid-{label}-{stamp}.tar.gz'
@@ -235,13 +236,13 @@ def backup(label):
         for old in sorted(S.BACKUPS.glob('zomboid-daily-*.tar.gz'), reverse=True)[7:]: old.unlink()
     return path.name
 
-BACKUP_KINDS = {'daily': 'automatic', 'manual': 'manual', 'pre-update': 'rescue', 'pre-restore': 'rescue'}
+BACKUP_KINDS = {'daily': 'automatic', 'manual': 'manual', 'pre-update': 'rescue', 'pre-restore': 'rescue', 'pre-wipe': 'rescue'}
 
 def backup_list():
     result = []
     for p in S.BACKUPS.glob('zomboid-*.tar.gz'):
         if not p.is_file() or p.is_symlink(): continue
-        label = re.match(r'zomboid-(daily|manual|pre-update|pre-restore)-', p.name)
+        label = re.match(r'zomboid-(daily|manual|pre-update|pre-restore|pre-wipe)-', p.name)
         info = p.stat()
         result.append({'name': p.name, 'size': info.st_size, 'mtime': info.st_mtime,
                        'kind': BACKUP_KINDS[label[1]] if label else 'other', 'label': label[1] if label else None})
@@ -312,18 +313,41 @@ def restore(path):
             old.rename(S.DATA); raise
         # pre-restore backup is verified before this function; previous is recoverable there.
 
+def wipe():
+    """Delete the world and everything tied to its characters; configuration, accounts (db/), mods and logs stay.
+    The game generates a new world on the next start."""
+    removed = []
+    # The world save (map, players.db, vehicles.db, mod data) and the game's own zipped copies of it.
+    for p in (S.DATA / 'Saves' / 'Multiplayer' / S.NAME, S.DATA / 'backups' / 'startup', S.DATA / 'backups' / 'version'):
+        if p.is_symlink(): raise ValueError('Data contains links; review before wiping.')
+        if p.is_dir(): shutil.rmtree(p); removed.append(str(p.relative_to(S.DATA)))
+    # Files mods write on the server (per-player counters and similar).
+    lua = S.DATA / 'Lua'
+    if lua.is_dir() and not lua.is_symlink():
+        for p in lua.iterdir():
+            if p.is_file() and not p.is_symlink(): p.unlink(); removed.append(str(p.relative_to(S.DATA)))
+    # A new ResetID makes clients drop the characters they cached for the old world.
+    ini = S.DATA / 'Server' / S.FILES['server']
+    text = ini.read_text()
+    old = re.search(r'(?m)^ResetID=(.*)$', text)
+    if old:
+        current = value = old[1].strip()
+        while value == current: value = str(randbelow(10**9))
+        atomic(ini, text[:old.start(1)] + value + text[old.end(1):])
+    return removed
+
 # Steps shown in the panel while an operation runs, keyed by the progress messages below.
 STEPS = {'start': ['start'], 'stop': ['warn', 'stop'], 'restart': ['warn', 'stop', 'start'],
          'backup': ['warn', 'stop', 'backup', 'start'], 'restore': ['warn', 'stop', 'safety', 'restore', 'start'],
-         'update': ['warn', 'stop', 'safety', 'steamcmd', 'start', 'version']}
+         'update': ['warn', 'stop', 'safety', 'steamcmd', 'start', 'version'], 'wipe': ['warn', 'stop', 'safety', 'wipe', 'start']}
 STEP_OF = {'Warning connected players': 'warn', 'Saving and shutting down gracefully': 'stop',
            'Starting': 'start', 'Starting and checking': 'start', 'Creating and verifying backup': 'backup',
            'Creating a safety backup': 'safety', 'Restoring validated backup': 'restore',
-           'Updating with SteamCMD; this may take several minutes': 'steamcmd', 'Checking version': 'version'}
+           'Updating with SteamCMD; this may take several minutes': 'steamcmd', 'Checking version': 'version', 'Wiping world and player data': 'wipe'}
 WARNING_SECONDS = 10
 
 def execute(action, payload, progress):
-    if action not in ('start', 'stop', 'restart', 'backup', 'restore', 'update'): raise ValueError('Invalid operation.')
+    if action not in ('start', 'stop', 'restart', 'backup', 'restore', 'update', 'wipe'): raise ValueError('Invalid operation.')
     with locked():
         if action == 'start':
             if systemctl('is-active') == 'active': return 'The server was already running.'
@@ -350,9 +374,11 @@ def execute(action, payload, progress):
                 if was_active: progress('Starting and checking'); start()
             return 'Verified backup: ' + result
         progress('Creating a safety backup')
-        backup('pre-restore' if action == 'restore' else 'pre-update')
+        backup({'restore': 'pre-restore', 'wipe': 'pre-wipe'}.get(action, 'pre-update'))
         if action == 'restore':
             progress('Restoring validated backup'); restore(target)
+        elif action == 'wipe':
+            progress('Wiping world and player data'); wipe()
         else:
             progress('Updating with SteamCMD; this may take several minutes')
             result = command([str(S.STEAM), '+@sSteamCmdForcePlatformType', 'linux', '+force_install_dir', str(S.GAME), '+login', 'anonymous', '+app_update', '380870', 'validate', '+quit'], timeout=3600)
@@ -367,7 +393,7 @@ def execute(action, payload, progress):
             if action == 'update': progress('Checking version')
             if action == 'update' and not status()['version'].startswith('42.'):
                 preserve_stop(); raise ValueError('The version is not Build 42. Server stopped; safety backup available.')
-        return 'Restore completed.' if action == 'restore' else 'Update completed.'
+        return {'restore': 'Restore completed.', 'wipe': 'World wiped. A new world is generated on the next start.'}.get(action, 'Update completed.')
 
 def mod_ids(text):
     """Mods line and mod.info 'require' entries: separated by ; or , and optionally prefixed by a backslash (Build 42)."""

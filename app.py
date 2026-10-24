@@ -251,7 +251,17 @@ def create_app():
     @app.post('/api/operations')
     def operate():
         data = request.get_json(); action = data.get('action')
-        if action not in ('start','stop','restart','backup','restore','update'): raise ValueError('Action not allowed.')
+        if action not in ('start','stop','restart','backup','restore','update','wipe'): raise ValueError('Action not allowed.')
+        if action == 'wipe':
+            # Deleting the world asks for the panel password again, under the same limiter as the login.
+            now = time.monotonic(); ip = request.remote_addr; password = data.get('password', '')
+            if not isinstance(password,str) or len(password)>1024: abort(400)
+            with auth_lock:
+                attempts[ip] = [t for t in attempts[ip] if now-t<900]
+                if len(attempts[ip]) >= 5: return jsonify(error='Too many attempts. Wait 15 minutes.'),429
+                attempts[ip].append(now)
+            if not check_password_hash(account()['hash'], password): raise ValueError('Incorrect password.')
+            with auth_lock: attempts.pop(ip,None)
         payload = {'confirmed': data.get('confirmed') is True, 'backup':data.get('backup'), 'notice': notice(action, language())}
         with jobs_lock:
             if any(j['state']=='running' for j in jobs.values()): raise ValueError('An operation is already running.')

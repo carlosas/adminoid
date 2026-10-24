@@ -361,7 +361,8 @@ def fake_services(operation_delay=0.4):
                 write_json(S.STATE / 'applied-values.json', configs)
             if action == 'backup': return 'Verified backup: ' + O.backup('manual')
             return {'start': 'Server started.', 'stop': 'Server stopped; saved configuration preserved.', 'restart': 'Server restarted.',
-                    'restore': 'Restore completed.', 'update': 'Update completed.'}[action]
+                    'restore': 'Restore completed.', 'update': 'Update completed.',
+                    'wipe': 'World wiped. A new world is generated on the next start.'}[action]
 
     with patch.object(O, 'systemctl', side_effect=systemctl), patch.object(O, 'console', side_effect=console), \
          patch.object(O, 'command', side_effect=command), patch.object(O, 'execute', side_effect=execute), \

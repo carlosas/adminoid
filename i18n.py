@@ -104,6 +104,10 @@ MESSAGES = {
  'No downloaded files were found for this item.':'No hay archivos descargados de este elemento.',
  'Invalid log source.':'Origen de registros inválido.',
  'Invalid log cursor.':'Posición de registros inválida.',
+ 'Incorrect password.':'Contraseña incorrecta.',
+ 'Wiping world and player data':'Borrando el mundo y los datos de jugadores',
+ 'World wiped. A new world is generated on the next start.':'Mundo borrado. Se genera un mundo nuevo en el próximo arranque.',
+ 'Data contains links; review before wiping.':'Hay enlaces en los datos; revisar antes de borrar.',
 }
 
 NOTICES = {
@@ -111,12 +115,14 @@ NOTICES = {
         'restart':'The server will restart in 10 seconds. The world is being saved; reconnect in a few minutes.',
         'backup':'The server will restart in 10 seconds to make a backup. Reconnect in a few minutes.',
         'restore':'The server will shut down in 10 seconds to restore a backup.',
-        'update':'The server will shut down in 10 seconds to update the game.'},
+        'update':'The server will shut down in 10 seconds to update the game.',
+        'wipe':'The server will shut down in 10 seconds. The world and all characters will be deleted to start over.'},
  'es': {'stop':'El servidor se cerrará por mantenimiento en 10 segundos. Se está guardando el mundo.',
         'restart':'El servidor se reiniciará en 10 segundos. Se está guardando el mundo; vuelve a conectar en unos minutos.',
         'backup':'El servidor se reiniciará en 10 segundos para hacer una copia. Vuelve a conectar en unos minutos.',
         'restore':'El servidor se cerrará en 10 segundos para restaurar una copia.',
-        'update':'El servidor se cerrará en 10 segundos para actualizar el juego.'},
+        'update':'El servidor se cerrará en 10 segundos para actualizar el juego.',
+        'wipe':'El servidor se cerrará en 10 segundos. Se borrarán el mundo y todos los personajes para empezar de nuevo.'},
 }
 
 def notice(action, lang='en'):

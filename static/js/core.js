@@ -189,10 +189,10 @@ function updateBadges(){
 PZ.updateBadges=updateBadges;
 
 // Operations: confirmation dialog, then progress is followed by watchJob.
-const OP_STYLE={start:['play','',''],stop:['stop','danger','danger'],restart:['restart','amber','amber-fill'],backup:['backup','',''],restore:['restart','danger','danger'],update:['download','amber','amber-fill']};
+const OP_STYLE={start:['play','',''],stop:['stop','danger','danger'],restart:['restart','amber','amber-fill'],backup:['backup','',''],restore:['restart','danger','danger'],update:['download','amber','amber-fill'],wipe:['warning','danger','danger']};
 async function operation(action,backup){
   if(PZ.state.job?.state==='running'){toast(t('operationRunning'));return;}
-  const [iconName,look,cls]=OP_STYLE[action];
+  const [iconName,look,cls]=OP_STYLE[action];let password;
   if(action==='start'){
     if(!await dialog({icon:iconName,title:t('confirmTitle_start'),body:[el('p',{class:'dlg-text',text:t('startText')})],confirm:t('confirmButton_start'),confirmClass:'primary'}))return;
   }else{
@@ -213,13 +213,15 @@ async function operation(action,backup){
       sub=b?`${backup} · ${bytes(b.size).join(' ')}`:backup;
       body.push(el('label',{class:'stack'},el('span',{},t('typeToConfirm1'),el('strong',{class:'mono',text:PZ.name}),t('typeToConfirm2')),el('input',{name:'confirm',autocomplete:'off',spellcheck:'false'})));
     }
+    if(action==='wipe')body.push(el('label',{class:'stack'},el('span',{text:t('wipePassword')}),el('input',{name:'password',type:'password',autocomplete:'current-password',required:true})));
     const b=action==='restore'&&PZ.state.backups?.find(x=>x.name===backup);
     const title=action==='restore'&&b?t('confirmTitle_restore_date',{date:dayLabel(b.mtime)}):t('confirmTitle_'+action);
-    const confirmed=await dialog({icon:iconName,tone:look,title,sub,body,confirm:t('confirmButton_'+action+(action==='restore'&&!active?'_stopped':'')),confirmClass:cls||'primary',
-      validate:action==='restore'?form=>form.elements.confirm.value.trim()===PZ.name:undefined});
+    const confirmed=await dialog({icon:iconName,tone:look,title,sub,body,confirm:t('confirmButton_'+action+((action==='restore'||action==='wipe')&&!active?'_stopped':'')),confirmClass:cls||'primary',
+      validate:action==='restore'?form=>form.elements.confirm.value.trim()===PZ.name:action==='wipe'?form=>form.elements.password.value!=='':undefined});
     if(!confirmed)return;
+    password=confirmed.password;
   }
-  const job=await api('operations',{action,backup,confirmed:true});
+  const job=await api('operations',{action,backup,confirmed:true,password});
   try{localStorage.setItem('pz-job',job.id);}catch{}
   watchJob(job.id);
   PZ.go('maintenance');
