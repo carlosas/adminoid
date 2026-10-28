@@ -52,7 +52,7 @@ function renderService(){
     $('#version-build').textContent=/^42\./.test(v)?'Build 42':v||t('unknown');
     $('#version-full').textContent=/^42\./.test(v)?v:'';
   }
-  renderUpdate();
+  renderUpdate();renderModsUpdate();
 }
 
 let update=null,checking=false;
@@ -71,6 +71,28 @@ function renderUpdate(){
   // The update button only shows when Steam has a newer build, or when it could not be asked.
   $('#update-box').hidden=!update||u.available===false;
   $('#update-refresh').disabled=checking||running;
+}
+
+// Workshop items with a newer version on Steam than the one the server downloaded; shared with the Mods view.
+let checkingMods=false;
+async function loadModsUpdate(refresh){
+  checkingMods=true;renderModsUpdate();
+  try{PZ.state.modsUpdate=await api('mods-update'+(refresh===true?'?refresh=1':''));}
+  catch{PZ.state.modsUpdate={items:PZ.state.modsUpdate?.items||[],available:null};}
+  finally{checkingMods=false;renderModsUpdate();}
+}
+function renderModsUpdate(){
+  const u=PZ.state.modsUpdate;const running=PZ.state.job?.state==='running';
+  const outdated=(u?.items||[]).filter(i=>i.available);
+  // Without Workshop items there is nothing to check.
+  $('#mods-update-card').hidden=!u?.items?.length;
+  const [color,key]=checkingMods?['','updateChecking']:u?.available===false?['green','upToDate']:u?.available?['amber','modsUpdateAvailable']:['','updateUnknown'];
+  const state=$('#mods-update-state');state.className='pill '+color;state.textContent=t(key,{n:outdated.length});
+  $('#mods-update-detail').textContent=checkingMods||!u?'':u.available===false?(u.checked?t('modsUpdateChecked',{time:ago(u.checked)}):''):
+    u.available?'':t('modsUpdateUnknownDetail');
+  $('#mods-update-list').replaceChildren(...outdated.map(i=>el('li',{text:`${i.title||t('untitled',{id:i.id})} · ${t('updatePublished',{date:PZ.dayLabel(i.latest)})}`})));
+  $('#mods-update-box').hidden=checkingMods||!outdated.length;
+  $('#mods-update-refresh').disabled=checkingMods||running;
 }
 
 async function loadBackups(){
@@ -101,8 +123,9 @@ function renderBackups(){
 }
 
 $('#update-refresh').addEventListener('click',()=>loadUpdate(true));
+$('#mods-update-refresh').addEventListener('click',()=>loadModsUpdate(true));
 
-PZ.views.maintenance={title:'maintenance',renderJob,loadBackups,loadUpdate,
+PZ.views.maintenance={title:'maintenance',renderJob,loadBackups,loadUpdate,loadModsUpdate,
   status:renderService,
-  enter(){renderJob();run(loadBackups)();if(!checking)loadUpdate();}};
+  enter(){renderJob();run(loadBackups)();if(!checking)loadUpdate();if(!checkingMods)loadModsUpdate();}};
 })();

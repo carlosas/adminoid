@@ -373,6 +373,35 @@ class StatusTests(TemporaryServer):
         self.assertEqual(s['pending'],['server']);self.assertEqual(s['pending_changes'],{'server':2})
         self.assertEqual(s['max_players'],8);self.assertEqual(s['version'],'42.12.3')
         self.assertGreater(s['uptime'],0);self.assertEqual(s['last_backup']['kind'],'manual')
+    def test_mods_update_check(self):
+        import test_fixture as F
+        atomic(S.DATA/'Server'/S.FILES['server'],INI.replace('WorkshopItems=\n','WorkshopItems=2875848298;2613146550;2850935956\n'))
+        items=''.join(f'"{i}" {{ "size" "1" "timeupdated" "{F.DOWNLOADED}" }}' for i in ('2875848298','2613146550','2850935956'))
+        atomic(S.GAME/'steamapps/workshop/appworkshop_108600.acf',f'"AppWorkshop" {{ "WorkshopItemsInstalled" {{ {items} }} "WorkshopItemDetails" {{ "2850935956" {{ "timeupdated" "1" }} }} }}')
+        O.workshop_cache.clear()
+        with patch.object(O,'fetch',side_effect=F.steam_fetch) as fetch:
+            u=O.mods_update()
+            self.assertEqual([(i['id'],i['available']) for i in u['items']],[('2875848298',False),('2613146550',False),('2850935956',True)])
+            self.assertEqual(u['items'][2],{'id':'2850935956','title':'Better Car Physics','installed':F.DOWNLOADED,'latest':1790500000,'available':True})
+            self.assertTrue(u['available']);self.assertEqual(u['checked'],O.workshop_cache['2850935956']['at'])
+            calls=fetch.call_count
+            O.mods_update()  # cached: Steam is not asked again within the hour
+            self.assertEqual(fetch.call_count,calls)
+            with patch.dict(F.STEAM_UPDATED,{'2850935956':F.DOWNLOADED}):
+                self.assertTrue(O.mods_update()['available'])
+                self.assertFalse(O.mods_update(refresh=True)['available'])
+        # Steam unreachable: unknown, both per item and overall
+        O.workshop_cache.clear()
+        with patch.object(O,'fetch',side_effect=OSError('offline')):
+            u=O.mods_update()
+            self.assertIsNone(u['available']);self.assertEqual({i['available'] for i in u['items']},{None})
+        # An item that is not downloaded yet does not count; it downloads on the next start anyway
+        (S.GAME/'steamapps/workshop/appworkshop_108600.acf').write_text('"AppWorkshop"\n{\n}\n')
+        O.workshop_cache.clear()
+        with patch.object(O,'fetch',side_effect=F.steam_fetch):
+            u=O.mods_update()
+            self.assertFalse(u['available']);self.assertEqual({i['installed'] for i in u['items']},{None})
+        O.workshop_cache.clear()
     def test_game_update_check(self):
         from subprocess import CompletedProcess
         import test_fixture as F

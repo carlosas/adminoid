@@ -114,6 +114,9 @@ def create_app():
     @app.get('/api/game-update')
     def game_update(): return jsonify(O.game_update(request.args.get('refresh') == '1'))
 
+    @app.get('/api/mods-update')
+    def mods_update(): return jsonify(O.mods_update(request.args.get('refresh') == '1'))
+
     @app.get('/api/players')
     def players(): return jsonify(O.players())
 

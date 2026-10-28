@@ -171,10 +171,14 @@ def main():
                 expect(page.locator('#update-state')).to_have_text('Nueva versión disponible')
                 expect(page.get_by_role('button', name='Actualizar Build 42…')).to_be_visible()
                 fake['steam_build'] = '25485538'
-                page.get_by_role('button', name='Comprobar ahora').click()
+                page.locator('#update-refresh').click()
                 expect(page.locator('#update-state')).to_have_text('Actualizada')
                 expect(page.locator('#update-detail')).to_contain_text('Es la última build publicada en Steam')
                 expect(page.get_by_role('button', name='Actualizar Build 42…')).to_be_hidden()
+                # Mod versions: Better Car Physics has a newer version on Steam, so a restart is offered
+                expect(page.locator('#mods-update-state')).to_have_text('Actualización de 1 mod')
+                expect(page.locator('#mods-update-list')).to_contain_text('Better Car Physics')
+                expect(page.get_by_role('button', name='Reiniciar para actualizar…')).to_be_visible()
                 page.locator('#view-maintenance').get_by_role('button', name='Reiniciar…').click()
                 expect(page.locator('#dialog .names span')).to_have_count(2)
                 page.locator('#dialog').get_by_role('button', name='Guardar y reiniciar').click()
