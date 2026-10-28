@@ -504,7 +504,8 @@ def steam_items(ids):
         for d, requires in zip(details, pages):
             with workshop_lock:
                 workshop_cache[d['publishedfileid']] = {'at': now, 'title': d.get('title') or '', 'modIds': description_mod_ids(d.get('description')),
-                                                        'requires': [r for r in requires if r != d['publishedfileid']]}
+                                                        'requires': [r for r in requires if r != d['publishedfileid']],
+                                                        'updated': int(d.get('time_updated') or 0) or None}
     with workshop_lock:
         for i in ids:
             if i in workshop_cache: out[i] = {k: v for k, v in workshop_cache[i].items() if k != 'at'}
@@ -535,6 +536,38 @@ def workshop_info(ids, depth=3):
         if i not in order: order.append(i)
     for i in ids: visit(i, set())
     return {'items': [items[i] for i in order]}
+
+def installed_workshop():
+    """timeupdated per downloaded Workshop item, from the Workshop manifests next to the content folders."""
+    found = {}
+    for root in workshop_roots():
+        try: text = (root.parent.parent / 'appworkshop_108600.acf').read_text(errors='replace')
+        except OSError: continue
+        start = text.find('"WorkshopItemsInstalled"')
+        if start < 0: continue
+        end = text.find('"WorkshopItemDetails"', start)
+        for ident, stamp in re.findall(r'"(\d+)"\s*\{[^{}]*?"timeupdated"\s+"(\d+)"', text[start:end if end > 0 else None]):
+            found[ident] = max(found.get(ident, 0), int(stamp))
+    return found
+
+def mods_update(refresh=False):
+    """Compare the downloaded version of each saved Workshop item with Steam's; Steam data is cached for an hour unless refresh is set.
+    The server downloads newer versions when it starts, so an available update means a restart is needed."""
+    ids = [i for i in dict.fromkeys(mods_report()['workshop']) if re.fullmatch(r'\d{1,20}', i)]
+    if refresh:
+        with workshop_lock:
+            for i in ids: workshop_cache.pop(i, None)
+    steam, installed = steam_items(ids), installed_workshop()
+    items = []
+    for i in ids:
+        latest, local = steam.get(i, {}).get('updated'), installed.get(i)
+        items.append({'id': i, 'title': steam.get(i, {}).get('title', ''), 'installed': local, 'latest': latest,
+                      'available': None if not (local and latest) else latest > local})
+    # Items not downloaded yet are reported elsewhere; they download on the next start anyway.
+    known = [x['available'] for x in items if x['installed']]
+    with workshop_lock: checked = min((workshop_cache[i]['at'] for i in ids if i in workshop_cache), default=None)
+    return {'items': items, 'checked': checked,
+            'available': True if any(known) else None if None in known else False}
 
 # Game updates: the installed build from the Steam app manifest, the latest one from the public branch on Steam.
 GAME_APP = '380870'

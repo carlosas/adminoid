@@ -108,6 +108,7 @@ function renderWorkshop(ids,canEdit){
   $('#workshop-rows').replaceChildren(...(items.length?items.map(id=>{
     const info=workshopInfo[id];const mods=modsOf(id);
     const downloaded=PZ.state.mods.installed.some(m=>m.workshop===id);
+    const update=PZ.state.modsUpdate?.items?.find(x=>x.id===id&&x.available);
     const title=info?.title||PZ.state.mods.installed.find(m=>m.workshop===id)?.name||t('untitled',{id});
     const modCells=mods.length?mods.map(mod=>el('div',{class:'ws-mod'},el('span',{class:'mono small',text:mod}),
       ids.includes(mod)?el('span',{class:'pill green',text:t('stateActive')})
@@ -120,7 +121,8 @@ function renderWorkshop(ids,canEdit){
     return el('tr',{},
       el('td',{},el('a',{class:'mod-name',href:steamUrl(id),target:'_blank',rel:'noopener noreferrer',text:title}),el('div',{class:'mod-id',text:id})),
       el('td',{},el('div',{class:'ws-mods'},modCells)),
-      el('td',{},el('span',{class:downloaded?'pill green':'pill amber',text:downloaded?t('downloaded'):t('pendingDownload')})),
+      el('td',{},update?el('span',{class:'pill amber',text:t('modUpdateAvailable'),title:t('updatePublished',{date:PZ.dayLabel(update.latest)})})
+        :el('span',{class:downloaded?'pill green':'pill amber',text:downloaded?t('downloaded'):t('pendingDownload')})),
       el('td',{class:'right'},remove));
   }):[el('tr',{},el('td',{colspan:4,class:'muted',text:t('noWorkshopItems')}))]));
 }
@@ -245,6 +247,8 @@ async function deleteFiles(mod){
 async function load(){
   const tasks=[api('mods').then(r=>{PZ.state.mods=r;})];
   if(!PZ.state.config)tasks.push(PZ.views.settings.load());
+  // Steam can be slow: the update check fills in the Download column when it answers.
+  if(!PZ.state.modsUpdate)PZ.views.maintenance.loadModsUpdate().then(()=>{if(PZ.current()==='mods')render();});
   await Promise.all(tasks);
   render();
 }

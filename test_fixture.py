@@ -190,11 +190,16 @@ STEAM = {
     '3815999052': ('OldPoint - Rotating Overhead Camera', 'Workshop ID: 3815999052\r\nMod ID: OldPoint', ['3809306528', '3619862853']),
 }
 
+# Last update on Steam per Workshop ID; Better Car Physics has a version newer than the downloaded one.
+DOWNLOADED = 1790000000
+STEAM_UPDATED = {'2850935956': 1790500000}
+
 def steam_fetch(url, data=None):
     if data:
         ids = [v for k, v in data.items() if k.startswith('publishedfileids')]
         return json.dumps({'response': {'publishedfiledetails': [
-            {'publishedfileid': i, 'result': 1, 'title': STEAM[i][0], 'description': STEAM[i][1]} if i in STEAM else {'publishedfileid': i, 'result': 9} for i in ids]}})
+            {'publishedfileid': i, 'result': 1, 'title': STEAM[i][0], 'description': STEAM[i][1], 'time_updated': STEAM_UPDATED.get(i, DOWNLOADED)}
+            if i in STEAM else {'publishedfileid': i, 'result': 9} for i in ids]}})
     ident = url.rsplit('=', 1)[1]
     links = ''.join(f'<a href="https://steamcommunity.com/workshop/filedetails/?id={r}" target="_blank">\n<div class="requiredItem">\n{STEAM[r][0]}</div></a>' for r in STEAM[ident][2])
     return f'<html><div class="requiredItemsContainer" id="RequiredItems">{links}</div></html>'
@@ -287,6 +292,8 @@ def build(root):
     # Sandbox options of two mods: Better Car Physics is active (its values are in SandboxVars), Brita is not.
     workshop = S.GAME / 'steamapps/workshop/content/108600'
     for path, text in MOD_FILES.items(): atomic(workshop / path, text)
+    items = ''.join(f'\t\t"{i}"\n\t\t{{\n\t\t\t"size"\t\t"1024"\n\t\t\t"timeupdated"\t\t"{DOWNLOADED}"\n\t\t}}\n' for i in MODS if i != 'local')
+    atomic(workshop.parent.parent / 'appworkshop_108600.acf', f'"AppWorkshop"\n{{\n\t"appid"\t\t"108600"\n\t"WorkshopItemsInstalled"\n\t{{\n{items}\t}}\n}}\n')
     # Configuration applied at the last start: one sandbox value differs, so a restart is pending.
     applied = {'server': INI, 'sandbox': LUA.replace('Zombies = 4', 'Zombies = 3'), 'regions': REGIONS}
     write_json(S.STATE / 'applied-values.json', applied)

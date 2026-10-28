@@ -165,6 +165,16 @@
 <div><button class="btn" data-op="update"><svg><use href="#i-download"/></svg><span data-i18n="updateBuild">Update Build 42…</span></button></div>
 </div>
 </section>
+<section class="card stack-gap" id="mods-update-card" hidden>
+<h2 data-i18n="modsVersion">Mod versions</h2>
+<div class="update-check"><span class="pill" id="mods-update-state"></span><span class="small muted" id="mods-update-detail"></span></div>
+<div><button class="btn small" type="button" id="mods-update-refresh"><svg><use href="#i-restart"/></svg><span data-i18n="checkNow">Check now</span></button></div>
+<div class="stack-gap" id="mods-update-box" hidden>
+<ul class="dlg-list" id="mods-update-list"></ul>
+<p class="muted" data-i18n="modsUpdateHelp">The server downloads Workshop updates when it starts. Until then, players who already have the new version cannot join.</p>
+<div><button class="btn" data-op="restart"><svg><use href="#i-restart"/></svg><span data-i18n="restartToUpdate">Restart to update…</span></button></div>
+</div>
+</section>
 </div>
 <section class="card flush">
 <div class="card-head padded">
